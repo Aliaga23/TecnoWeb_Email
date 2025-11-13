@@ -84,6 +84,9 @@ public class VendedorCommandProcessor {
                 case "VENTASHOY":
                     return ventasHoy(vendedor);
                     
+                case "MISCOMISIONESHOY":
+                    return misComisionesHoy(vendedor);
+                    
                 // ===== DEVOLUCIONES =====
                 case "REGISTRARDEVOLUCION":
                     return registrarDevolucion(parametros);
@@ -103,21 +106,20 @@ public class VendedorCommandProcessor {
     
     private String registrarCliente(List<String> params) throws SQLException {
         if (params.size() != 5) {
-            return ResponseFormatter.error("Parametros incorrectos. Use: REGISTRARCLIENTE[\"nombre\",\"email\",\"password\",\"ci\",\"telefono\"]");
+            return ResponseFormatter.error("Parametros incorrectos. Use: REGISTRARCLIENTE[\"nombre\",\"apellido\",\"email\",\"telefono\",\"ci\"]");
         }
         
         String nombre = params.get(0);
-        String email = params.get(1);
-        String password = params.get(2);
-        String ci = params.get(3);
-        String telefono = params.get(4);
+        String apellido = params.get(1);
+        String email = params.get(2);
+        String telefono = params.get(3);
+        String ci = params.get(4);
         
-        clienteService.registrarCliente(nombre, email, password, ci, telefono);
-        Usuario cliente = clienteService.buscarPorCorreo(email);
-        int clienteId = cliente.getId();
+        clienteService.registrarCliente(ci, nombre, apellido, telefono, email);
+        Usuario cliente = clienteService.buscarPorCI(ci);
         
         return ResponseFormatter.success("Cliente registrado exitosamente", 
-            "ID: " + clienteId + "<br>Nombre: " + nombre + "<br>Email: " + email);
+            "ID: " + cliente.getId() + "<br>Nombre: " + nombre + " " + apellido + "<br>CI: " + ci + "<br>Email: " + email);
     }
     
     private String buscarCliente(List<String> params) throws SQLException {
@@ -271,12 +273,20 @@ public class VendedorCommandProcessor {
     
     private String crearCotizacion(List<String> params, Usuario vendedor) throws SQLException {
         if (params.size() != 2) {
-            return ResponseFormatter.error("Parametros incorrectos. Use: CREARCOTIZACION[\"id_cliente\",\"productos\"]<br>" +
-                "Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: \"5:2,8:1\"");
+            return ResponseFormatter.error("Parametros incorrectos. Use: CREARCOTIZACION[\"ci_cliente\",\"productos\"]<br>" +
+                "Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: CREARCOTIZACION[\"7812899\",\"5:2,8:1\"]");
         }
         
-        int clienteId = Integer.parseInt(params.get(0));
+        String ci = params.get(0);
         String productos = params.get(1);
+        
+        // Buscar cliente por CI
+        Usuario cliente = clienteService.buscarPorCI(ci);
+        if (cliente == null) {
+            return ResponseFormatter.error("Cliente no encontrado con CI: " + ci);
+        }
+        
+        int clienteId = cliente.getId();
         
         cotizacionService.crearCotizacionCompleta(clienteId, productos);
         
@@ -355,18 +365,26 @@ public class VendedorCommandProcessor {
     
     private String crearVentaContado(List<String> params, Usuario vendedor) throws SQLException {
         if (params.size() != 3) {
-            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACONTADO[\"id_cliente\",\"productos\",\"metodo_pago\"]<br>" +
-                "Metodos: qr, tarjeta, efectivo<br>Formato productos: \"id:cantidad,id:cantidad\"");
+            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACONTADO[\"ci_cliente\",\"productos\",\"metodo_pago\"]<br>" +
+                "Metodos: qr, tarjeta, efectivo<br>Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: CREARVENTACONTADO[\"7812899\",\"1:2,3:1\",\"efectivo\"]");
         }
         
-        int clienteId = Integer.parseInt(params.get(0));
+        String ci = params.get(0);
         String productos = params.get(1);
         String metodoPago = params.get(2);
         int vendedorId = vendedor.getId();
         
+        // Buscar cliente por CI
+        Usuario cliente = clienteService.buscarPorCI(ci);
+        if (cliente == null) {
+            return ResponseFormatter.error("Cliente no encontrado con CI: " + ci);
+        }
+        
+        int clienteId = cliente.getId();
+        
         ventaService.crearVentaContado(clienteId, vendedorId, productos, metodoPago);
         List<Venta> ventas = ventaService.listarPorVendedor(vendedorId);
-        int ventaId = ventas.get(ventas.size() - 1).getId();
+        int ventaId = ventas.get(0).getId();
         
         return ResponseFormatter.success("Venta al contado registrada", 
             "ID de venta: " + ventaId + "<br>Estado: PAGADA<br>Use VERVENTA[\"" + ventaId + "\"] para ver detalles");
@@ -374,19 +392,27 @@ public class VendedorCommandProcessor {
     
     private String crearVentaCredito(List<String> params, Usuario vendedor) throws SQLException {
         if (params.size() != 2) {
-            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACREDITO[\"id_cliente\",\"productos\"]<br>" +
-                "Formato productos: \"id:cantidad,id:cantidad\"");
+            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACREDITO[\"ci_cliente\",\"productos\"]<br>" +
+                "Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\"]");
         }
         
-        int clienteId = Integer.parseInt(params.get(0));
+        String ci = params.get(0);
         String productos = params.get(1);
         int vendedorId = vendedor.getId();
         BigDecimal montoInicial = BigDecimal.ZERO;
         String metodoPago = "pendiente";
         
+        // Buscar cliente por CI
+        Usuario cliente = clienteService.buscarPorCI(ci);
+        if (cliente == null) {
+            return ResponseFormatter.error("Cliente no encontrado con CI: " + ci);
+        }
+        
+        int clienteId = cliente.getId();
+        
         ventaService.crearVentaCredito(clienteId, vendedorId, productos, montoInicial, metodoPago);
         List<Venta> ventas = ventaService.listarPorVendedor(vendedorId);
-        int ventaId = ventas.get(ventas.size() - 1).getId();
+        int ventaId = ventas.get(0).getId();
         
         return ResponseFormatter.success("Venta a credito registrada", 
             "ID de venta: " + ventaId + "<br>Estado: PENDIENTE<br>Use ABONARVENTA para registrar pagos");
@@ -395,7 +421,7 @@ public class VendedorCommandProcessor {
     private String abonarVenta(List<String> params) throws SQLException {
         if (params.size() != 3) {
             return ResponseFormatter.error("Parametros incorrectos. Use: ABONARVENTA[\"id_venta\",\"monto\",\"metodo\"]<br>" +
-                "Metodos: qr, tarjeta, efectivo");
+                "Metodos: qr, tarjeta, efectivo<br>Ejemplo: ABONARVENTA[\"5\",\"500.00\",\"efectivo\"]");
         }
         
         int ventaId = Integer.parseInt(params.get(0));
@@ -560,10 +586,55 @@ public class VendedorCommandProcessor {
         return ResponseFormatter.success("Resumen de ventas del dia (" + ventas.size() + " ventas)", html.toString());
     }
     
+    private String misComisionesHoy(Usuario vendedor) throws SQLException {
+        java.sql.Date hoy = new java.sql.Date(System.currentTimeMillis());
+        List<Venta> ventas = ventaService.listarPorVendedorYFecha(vendedor.getId(), hoy);
+        
+        if (ventas.isEmpty()) {
+            return ResponseFormatter.success("Mis comisiones de hoy", "No tiene ventas registradas hoy");
+        }
+        
+        double totalVentas = 0;
+        double totalComisiones = 0;
+        final double PORCENTAJE_COMISION = 0.05; // 5%
+        
+        for (Venta venta : ventas) {
+            double montoVenta = venta.getTotal().doubleValue();
+            totalVentas += montoVenta;
+            totalComisiones += montoVenta * PORCENTAJE_COMISION;
+        }
+        
+        StringBuilder html = new StringBuilder();
+        html.append("<h3>Mis Comisiones - ").append(hoy).append("</h3>");
+        html.append("<div style='background: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+        html.append("<p><strong>Ventas realizadas:</strong> ").append(ventas.size()).append("</p>");
+        html.append("<p><strong>Total vendido:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
+        html.append("<p><strong>Porcentaje de comisión:</strong> 5%</p>");
+        html.append("<p style='font-size: 20px; color: #2e7d32;'><strong>COMISIÓN GANADA:</strong> Bs ").append(String.format("%.2f", totalComisiones)).append("</p>");
+        html.append("</div>");
+        
+        html.append("<table border='1' cellpadding='5' style='border-collapse: collapse;'>");
+        html.append("<tr style='background-color: #4CAF50; color: white;'>");
+        html.append("<th>ID Venta</th><th>Total Venta</th><th>Comisión (5%)</th></tr>");
+        
+        for (Venta venta : ventas) {
+            double montoVenta = venta.getTotal().doubleValue();
+            double comision = montoVenta * PORCENTAJE_COMISION;
+            html.append("<tr>");
+            html.append("<td>").append(venta.getId()).append("</td>");
+            html.append("<td>Bs ").append(String.format("%.2f", montoVenta)).append("</td>");
+            html.append("<td>Bs ").append(String.format("%.2f", comision)).append("</td>");
+            html.append("</tr>");
+        }
+        html.append("</table>");
+        
+        return ResponseFormatter.success("Mis Comisiones de Hoy", html.toString());
+    }
+    
     private String registrarDevolucion(List<String> params) throws SQLException {
         if (params.size() != 3) {
             return ResponseFormatter.error("Parametros incorrectos. Use: REGISTRARDEVOLUCION[\"id_venta\",\"productos\",\"motivo\"]<br>" +
-                "Formato productos: \"id:cantidad,id:cantidad\"");
+                "Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: REGISTRARDEVOLUCION[\"5\",\"1:2\",\"Producto defectuoso\"]");
         }
         
         int ventaId = Integer.parseInt(params.get(0));
@@ -616,8 +687,8 @@ public class VendedorCommandProcessor {
         
         help.append("<h3 style='color: #3498db;'>GESTIÓN DE CLIENTES</h3>");
         help.append("<ul>");
-        help.append("<li><strong>REGISTRARCLIENTE[\"nombre\",\"apellido\",\"email\",\"telefono\",\"nit\"]</strong> - Registrar nuevo cliente</li>");
-        help.append("<li><strong>BUSCARCLIENTE[\"email\"]</strong> - Buscar cliente por email</li>");
+        help.append("<li><strong>REGISTRARCLIENTE[\"nombre\",\"apellido\",\"email\",\"telefono\",\"ci\"]</strong> - Registrar nuevo cliente</li>");
+        help.append("<li><strong>BUSCARCLIENTE[\"ci_o_email\"]</strong> - Buscar cliente por CI o email</li>");
         help.append("<li><strong>LISTARCLIENTES[]</strong> - Listar todos los clientes</li>");
         help.append("</ul>");
         
@@ -631,16 +702,19 @@ public class VendedorCommandProcessor {
         
         help.append("<h3 style='color: #3498db;'>COTIZACIONES</h3>");
         help.append("<ul>");
-        help.append("<li><strong>CREARCOTIZACION[\"cliente_email\",\"producto_id\",\"cantidad\",\"producto_id\",\"cantidad\",...]</strong> - Crear cotización</li>");
+        help.append("<li><strong>CREARCOTIZACION[\"ci_cliente\",\"id:cant,id:cant,...\"]</strong> - Crear cotización<br>");
+        help.append("Ejemplo: CREARCOTIZACION[\"7812899\",\"1:2,3:5,7:1\"]</li>");
         help.append("<li><strong>MISCOTIZACIONES[]</strong> - Ver mis cotizaciones</li>");
         help.append("<li><strong>VERCOTIZACION[\"id\"]</strong> - Ver detalles de cotización</li>");
         help.append("</ul>");
         
         help.append("<h3 style='color: #3498db;'>VENTAS</h3>");
         help.append("<ul>");
-        help.append("<li><strong>CREARVENTACONTADO[\"cliente_email\",\"producto_id\",\"cantidad\",\"producto_id\",\"cantidad\",...]</strong> - Venta al contado</li>");
-        help.append("<li><strong>CREARVENTACREDITO[\"cliente_email\",\"dias_credito\",\"producto_id\",\"cantidad\",...]</strong> - Venta a crédito</li>");
-        help.append("<li><strong>ABONARVENTA[\"venta_id\",\"monto\"]</strong> - Registrar abono a venta</li>");
+        help.append("<li><strong>CREARVENTACONTADO[\"ci_cliente\",\"id:cant,id:cant,...\",\"metodo\"]</strong> - Venta al contado<br>");
+        help.append("Métodos: efectivo, qr, tarjeta<br>Ejemplo: CREARVENTACONTADO[\"7812899\",\"1:2,3:1\",\"efectivo\"]</li>");
+        help.append("<li><strong>CREARVENTACREDITO[\"ci_cliente\",\"id:cant,id:cant,...\"]</strong> - Venta a crédito<br>");
+        help.append("Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\"]</li>");
+        help.append("<li><strong>ABONARVENTA[\"venta_id\",\"monto\",\"metodo\"]</strong> - Registrar abono a venta</li>");
         help.append("<li><strong>MISVENTAS[]</strong> - Ver mis ventas</li>");
         help.append("<li><strong>VERVENTA[\"id\"]</strong> - Ver detalles de venta</li>");
         help.append("<li><strong>LISTARVENTASPENDIENTES[]</strong> - Listar ventas pendientes de pago</li>");

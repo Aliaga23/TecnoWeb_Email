@@ -16,6 +16,7 @@ public class AdminCommandProcessor {
     private ProductoService productoService;
     private ProveedorService proveedorService;
     private DevolucionProveedorService devolucionProveedorService;
+    private VentaService ventaService;
     
     public AdminCommandProcessor() {
         this.rolService = new RolService();
@@ -24,6 +25,7 @@ public class AdminCommandProcessor {
         this.productoService = new ProductoService();
         this.proveedorService = new ProveedorService();
         this.devolucionProveedorService = new DevolucionProveedorService();
+        this.ventaService = new VentaService();
     }
     
     public String procesarComando(Command comando, String emailUsuario) {
@@ -82,6 +84,14 @@ public class AdminCommandProcessor {
                     return registrarDevolucionProveedor(comando);
                 case "LISTARDEVOLUCIONESPROVEEDOR":
                     return listarDevolucionesProveedor();
+                    
+                // REPORTES
+                case "REPORTEVENTASHOY":
+                    return reporteVentasHoy();
+                case "REPORTEVENTASMES":
+                    return reporteVentasMes();
+                case "REPORTEVENTAS":
+                    return reporteVentasTotal();
                     
                 default:
                     return ResponseFormatter.error("Comando no reconocido: " + comando.getNombre());
@@ -173,7 +183,7 @@ public class AdminCommandProcessor {
     
     private String modificarUsuario(Command comando) {
         if (comando.getParametros().size() != 5) {
-            return ResponseFormatter.error("ModificarUsuario requiere 5 parametros:\nci, nombre, apellido, telefono, correo\n\nEjemplo:\nModificarUsuario[\"12345\",\"Juan\",\"Perez\",\"70123456\",\"juan@email.com\"]");
+            return ResponseFormatter.error("ModificarUsuario requiere 5 parametros:\nci, nombre, apellido, telefono, email\n\nEjemplo:\nModificarUsuario[\"12345\",\"Juan\",\"Perez\",\"70123456\",\"juan@email.com\"]");
         }
         
         try {
@@ -269,7 +279,7 @@ public class AdminCommandProcessor {
     
     private String buscarUsuario(Command comando) {
         if (comando.getParametros().size() != 1) {
-            return ResponseFormatter.error("BuscarUsuario requiere 1 parametro: ci");
+            return ResponseFormatter.error("BuscarUsuario requiere 1 parametro: email\n\nEjemplo:\nBuscarUsuario[\"usuario@email.com\"]");
         }
         
         try {
@@ -340,7 +350,7 @@ public class AdminCommandProcessor {
     
     private String insertarProducto(Command comando) {
         if (comando.getParametros().size() != 5) {
-            return ResponseFormatter.error("InsertarProducto requiere 5 parametros:\nnombre, descripcion, stock, precio, categoria_nombre\n\nEjemplo:\nInsertarProducto[\"Laptop\",\"Laptop HP\",\"5000.50\",\"10\",\"Electronica\"]");
+            return ResponseFormatter.error("InsertarProducto requiere 5 parametros:\nnombre, descripcion, stock, precio, categoria_nombre\n\nEjemplo:\nInsertarProducto[\"Laptop\",\"Laptop HP\",\"10\",\"5000.50\",\"Electronica\"]");
         }
         
         try {
@@ -622,8 +632,8 @@ public class AdminCommandProcessor {
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE USUARIOS</h3>");
         help.append("<ul>");
-        help.append("<li><strong>INSERTARUSUARIO[\"nombre\",\"apellido\",\"email\",\"contraseña\",\"rol_id\"]</strong> - Crear usuario</li>");
-        help.append("<li><strong>MODIFICARUSUARIO[\"id\",\"nombre\",\"apellido\",\"email\",\"rol_id\"]</strong> - Modificar usuario</li>");
+        help.append("<li><strong>INSERTARUSUARIO[\"ci\",\"nombre\",\"apellido\",\"telefono\",\"email\",\"rol_nombre\"]</strong> - Crear usuario</li>");
+        help.append("<li><strong>MODIFICARUSUARIO[\"ci\",\"nombre\",\"apellido\",\"telefono\",\"email\"]</strong> - Modificar usuario</li>");
         help.append("<li><strong>ELIMINARUSUARIO[\"id\"]</strong> - Eliminar usuario</li>");
         help.append("<li><strong>LISTARUSUARIOS[]</strong> - Listar todos los usuarios</li>");
         help.append("<li><strong>BUSCARUSUARIO[\"email\"]</strong> - Buscar usuario por email</li>");
@@ -664,9 +674,211 @@ public class AdminCommandProcessor {
         help.append("<li><strong>VERDEVOLUCIONPROVEEDOR[\"id\"]</strong> - Ver detalles de devolución</li>");
         help.append("</ul>");
         
+        help.append("<h3 style='color: #27ae60;'>REPORTES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>REPORTEVENTASHOY[]</strong> - Reporte de ventas del día actual</li>");
+        help.append("<li><strong>REPORTEVENTASMES[]</strong> - Reporte de ventas del mes actual</li>");
+        help.append("<li><strong>REPORTEVENTAS[]</strong> - Reporte total de ventas</li>");
+        help.append("</ul>");
+        
         help.append("<p style='margin-top: 20px; color: #7f8c8d;'><em>Nota: Los parámetros entre comillas dobles son obligatorios. Los corchetes [] indican sin parámetros.</em></p>");
         help.append("</div>");
         
         return ResponseFormatter.success("Ayuda del Sistema", help.toString());
+    }
+    
+    // ==================== REPORTES ====================
+    
+    private String reporteVentasHoy() {
+        try {
+            java.sql.Date hoy = new java.sql.Date(System.currentTimeMillis());
+            List<Venta> ventas = ventaService.listarTodas();
+            
+            // Filtrar ventas del día actual
+            List<Venta> ventasHoy = new java.util.ArrayList<>();
+            for (Venta venta : ventas) {
+                if (venta.getFechaVenta().toString().equals(hoy.toString())) {
+                    ventasHoy.add(venta);
+                }
+            }
+            
+            if (ventasHoy.isEmpty()) {
+                return ResponseFormatter.success("Reporte de Ventas - Hoy", "No hay ventas registradas hoy");
+            }
+            
+            double totalVentas = 0;
+            double totalPagado = 0;
+            double totalPendiente = 0;
+            int cantidadVentas = ventasHoy.size();
+            
+            for (Venta venta : ventasHoy) {
+                totalVentas += venta.getTotal().doubleValue();
+                if (venta.getEstado().equals("pagada")) {
+                    totalPagado += venta.getTotal().doubleValue();
+                } else {
+                    totalPendiente += venta.getTotal().doubleValue();
+                }
+            }
+            
+            StringBuilder html = new StringBuilder();
+            html.append("<h3>Reporte de Ventas - ").append(hoy).append("</h3>");
+            html.append("<div style='background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+            html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
+            html.append("<p><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
+            html.append("<p><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
+            html.append("<p><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("</div>");
+            
+            html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
+            html.append("<tr style='background: #2196F3; color: white;'>");
+            html.append("<th>ID</th><th>Cliente ID</th><th>Vendedor ID</th><th>Total</th><th>Estado</th></tr>");
+            
+            for (Venta venta : ventasHoy) {
+                html.append("<tr>");
+                html.append("<td>").append(venta.getId()).append("</td>");
+                html.append("<td>").append(venta.getClienteId()).append("</td>");
+                html.append("<td>").append(venta.getVendedorId()).append("</td>");
+                html.append("<td>Bs ").append(String.format("%.2f", venta.getTotal())).append("</td>");
+                html.append("<td style='color: ").append(venta.getEstado().equals("pagada") ? "green" : "orange").append("'>")
+                     .append(venta.getEstado().toUpperCase()).append("</td>");
+                html.append("</tr>");
+            }
+            html.append("</table>");
+            
+            return ResponseFormatter.success("Reporte de Ventas - Hoy", html.toString());
+        } catch (Exception e) {
+            return ResponseFormatter.error("Error al generar reporte: " + e.getMessage());
+        }
+    }
+    
+    private String reporteVentasMes() {
+        try {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            int mesActual = cal.get(java.util.Calendar.MONTH);
+            int anioActual = cal.get(java.util.Calendar.YEAR);
+            
+            List<Venta> ventas = ventaService.listarTodas();
+            
+            // Filtrar ventas del mes actual
+            List<Venta> ventasMes = new java.util.ArrayList<>();
+            for (Venta venta : ventas) {
+                cal.setTime(venta.getFechaVenta());
+                if (cal.get(java.util.Calendar.MONTH) == mesActual && 
+                    cal.get(java.util.Calendar.YEAR) == anioActual) {
+                    ventasMes.add(venta);
+                }
+            }
+            
+            if (ventasMes.isEmpty()) {
+                return ResponseFormatter.success("Reporte de Ventas - Mes Actual", "No hay ventas registradas este mes");
+            }
+            
+            double totalVentas = 0;
+            double totalPagado = 0;
+            double totalPendiente = 0;
+            int cantidadVentas = ventasMes.size();
+            
+            for (Venta venta : ventasMes) {
+                totalVentas += venta.getTotal().doubleValue();
+                if (venta.getEstado().equals("pagada")) {
+                    totalPagado += venta.getTotal().doubleValue();
+                } else {
+                    totalPendiente += venta.getTotal().doubleValue();
+                }
+            }
+            
+            String[] meses = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
+            
+            StringBuilder html = new StringBuilder();
+            html.append("<h3>Reporte de Ventas - ").append(meses[mesActual]).append(" ").append(anioActual).append("</h3>");
+            html.append("<div style='background: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+            html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
+            html.append("<p><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
+            html.append("<p><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
+            html.append("<p><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("</div>");
+            
+            html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
+            html.append("<tr style='background: #4CAF50; color: white;'>");
+            html.append("<th>ID</th><th>Fecha</th><th>Cliente ID</th><th>Vendedor ID</th><th>Total</th><th>Estado</th></tr>");
+            
+            for (Venta venta : ventasMes) {
+                html.append("<tr>");
+                html.append("<td>").append(venta.getId()).append("</td>");
+                html.append("<td>").append(venta.getFechaVenta()).append("</td>");
+                html.append("<td>").append(venta.getClienteId()).append("</td>");
+                html.append("<td>").append(venta.getVendedorId()).append("</td>");
+                html.append("<td>Bs ").append(String.format("%.2f", venta.getTotal())).append("</td>");
+                html.append("<td style='color: ").append(venta.getEstado().equals("pagada") ? "green" : "orange").append("'>")
+                     .append(venta.getEstado().toUpperCase()).append("</td>");
+                html.append("</tr>");
+            }
+            html.append("</table>");
+            
+            return ResponseFormatter.success("Reporte de Ventas - " + meses[mesActual] + " " + anioActual, html.toString());
+        } catch (Exception e) {
+            return ResponseFormatter.error("Error al generar reporte: " + e.getMessage());
+        }
+    }
+    
+    private String reporteVentasTotal() {
+        try {
+            List<Venta> ventas = ventaService.listarTodas();
+            
+            if (ventas.isEmpty()) {
+                return ResponseFormatter.success("Reporte Total de Ventas", "No hay ventas registradas");
+            }
+            
+            double totalVentas = 0;
+            double totalPagado = 0;
+            double totalPendiente = 0;
+            int cantidadVentas = ventas.size();
+            int ventasPagadas = 0;
+            int ventasPendientes = 0;
+            
+            for (Venta venta : ventas) {
+                totalVentas += venta.getTotal().doubleValue();
+                if (venta.getEstado().equals("pagada")) {
+                    totalPagado += venta.getTotal().doubleValue();
+                    ventasPagadas++;
+                } else {
+                    totalPendiente += venta.getTotal().doubleValue();
+                    ventasPendientes++;
+                }
+            }
+            
+            StringBuilder html = new StringBuilder();
+            html.append("<h3>Reporte Total de Ventas</h3>");
+            html.append("<div style='background: #fff3e0; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+            html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
+            html.append("<p><strong>Ventas pagadas:</strong> ").append(ventasPagadas).append("</p>");
+            html.append("<p><strong>Ventas pendientes:</strong> ").append(ventasPendientes).append("</p>");
+            html.append("<p style='font-size: 18px; color: #1976d2;'><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
+            html.append("<p style='color: green;'><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
+            html.append("<p style='color: orange;'><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("</div>");
+            
+            html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
+            html.append("<tr style='background: #FF9800; color: white;'>");
+            html.append("<th>ID</th><th>Fecha</th><th>Cliente ID</th><th>Vendedor ID</th><th>Total</th><th>Estado</th></tr>");
+            
+            for (Venta venta : ventas) {
+                html.append("<tr>");
+                html.append("<td>").append(venta.getId()).append("</td>");
+                html.append("<td>").append(venta.getFechaVenta()).append("</td>");
+                html.append("<td>").append(venta.getClienteId()).append("</td>");
+                html.append("<td>").append(venta.getVendedorId()).append("</td>");
+                html.append("<td>Bs ").append(String.format("%.2f", venta.getTotal())).append("</td>");
+                html.append("<td style='color: ").append(venta.getEstado().equals("pagada") ? "green" : "orange").append("'>")
+                     .append(venta.getEstado().toUpperCase()).append("</td>");
+                html.append("</tr>");
+            }
+            html.append("</table>");
+            
+            return ResponseFormatter.success("Reporte Total de Ventas", html.toString());
+        } catch (Exception e) {
+            return ResponseFormatter.error("Error al generar reporte: " + e.getMessage());
+        }
     }
 }

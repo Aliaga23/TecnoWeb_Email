@@ -3,7 +3,10 @@ package bo.tecnoweb.emailsystem.service;
 import bo.tecnoweb.emailsystem.config.Config;
 import bo.tecnoweb.emailsystem.model.Devolucion;
 import bo.tecnoweb.emailsystem.model.DetalleDevolucionCliente;
+import bo.tecnoweb.emailsystem.model.DetalleVenta;
+import bo.tecnoweb.emailsystem.model.Venta;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,9 +14,11 @@ import java.util.List;
 public class DevolucionService {
     
     private ProductoService productoService;
+    private VentaService ventaService;
     
     public DevolucionService() {
         this.productoService = new ProductoService();
+        this.ventaService = new VentaService();
     }
     
     public int insertar(Devolucion devolucion) throws SQLException {
@@ -159,8 +164,18 @@ public class DevolucionService {
         
         int devolucionId = insertar(devolucion);
         
+        // Obtener la venta actual
+        Venta venta = ventaService.buscarPorId(ventaId);
+        if (venta == null) {
+            throw new SQLException("Venta no encontrada");
+        }
+        
+        // Obtener detalles de la venta para calcular el precio unitario
+        List<DetalleVenta> detallesVenta = ventaService.listarDetalles(ventaId);
+        
         // Procesar los productos: "producto_id:cantidad,producto_id:cantidad"
         String[] productosArray = productos.split(",");
+        BigDecimal montoDevolucion = BigDecimal.ZERO;
         
         for (String productoInfo : productosArray) {
             String[] partes = productoInfo.trim().split(":");
@@ -184,7 +199,24 @@ public class DevolucionService {
                 int nuevoStock = producto.getStockActual() + cantidad;
                 productoService.actualizarStock(productoId, nuevoStock);
             }
+            
+            // Calcular monto de devolucion basado en el precio unitario de la venta
+            for (DetalleVenta dv : detallesVenta) {
+                if (dv.getProductoId() == productoId) {
+                    BigDecimal montoProducto = dv.getPrecioUnitario().multiply(new BigDecimal(cantidad));
+                    montoDevolucion = montoDevolucion.add(montoProducto);
+                    break;
+                }
+            }
         }
+        
+        // Actualizar el total de la venta
+        BigDecimal nuevoTotal = venta.getTotal().subtract(montoDevolucion);
+        if (nuevoTotal.compareTo(BigDecimal.ZERO) < 0) {
+            nuevoTotal = BigDecimal.ZERO;
+        }
+        venta.setTotal(nuevoTotal);
+        ventaService.actualizar(venta);
     }
     
     public List<Devolucion> listarPorCliente(int clienteId) throws SQLException {

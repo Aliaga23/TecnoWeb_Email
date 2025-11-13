@@ -123,7 +123,7 @@ public class VentaService {
     public List<Venta> listarTodas() throws SQLException {
         List<Venta> ventas = new ArrayList<>();
         String sql = "SELECT id, fecha_venta, tipo, total, estado, cliente_id, vendedor_id, cotizacion_id " +
-                    "FROM venta ORDER BY fecha_venta DESC";
+                    "FROM venta ORDER BY id DESC";
         
         try (Connection conn = DriverManager.getConnection(
                 Config.getDbUrl(), Config.getDbUser(), Config.getDbPassword());
@@ -149,7 +149,7 @@ public class VentaService {
     public List<Venta> listarPorVendedor(int vendedorId) throws SQLException {
         List<Venta> ventas = new ArrayList<>();
         String sql = "SELECT id, fecha_venta, tipo, total, estado, cliente_id, vendedor_id, cotizacion_id " +
-                    "FROM venta WHERE vendedor_id = ? ORDER BY fecha_venta DESC";
+                    "FROM venta WHERE vendedor_id = ? ORDER BY id DESC";
         
         try (Connection conn = DriverManager.getConnection(
                 Config.getDbUrl(), Config.getDbUser(), Config.getDbPassword());

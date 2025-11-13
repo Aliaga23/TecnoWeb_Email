@@ -80,7 +80,7 @@ public class CotizacionService {
     public List<Cotizacion> listarTodas() throws SQLException {
         List<Cotizacion> cotizaciones = new ArrayList<>();
         String sql = "SELECT id, fecha_cotizacion, total, cliente_id " +
-                    "FROM cotizacion ORDER BY fecha_cotizacion DESC";
+                    "FROM cotizacion ORDER BY id DESC";
         
         try (Connection conn = DriverManager.getConnection(
                 Config.getDbUrl(), Config.getDbUser(), Config.getDbPassword());
@@ -102,7 +102,7 @@ public class CotizacionService {
     public List<Cotizacion> listarPorCliente(int clienteId) throws SQLException {
         List<Cotizacion> cotizaciones = new ArrayList<>();
         String sql = "SELECT id, fecha_cotizacion, total, cliente_id " +
-                    "FROM cotizacion WHERE cliente_id = ? ORDER BY fecha_cotizacion DESC";
+                    "FROM cotizacion WHERE cliente_id = ? ORDER BY id DESC";
         
         try (Connection conn = DriverManager.getConnection(
                 Config.getDbUrl(), Config.getDbUser(), Config.getDbPassword());

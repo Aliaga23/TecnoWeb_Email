@@ -501,26 +501,77 @@ public class ClienteCommandProcessor {
             return ResponseFormatter.error("No existe devolución con ID: " + devolucionId);
         }
         
+        // Obtener detalles de la devolucion
         List<DetalleDevolucionCliente> detalles = devolucionService.listarDetalles(devolucionId);
         
+        // Obtener detalles de la venta para calcular precios
+        List<DetalleVenta> detallesVenta = ventaService.listarDetalles(devolucion.getVentaId());
+        Venta venta = ventaService.buscarPorId(devolucion.getVentaId());
+        
         StringBuilder html = new StringBuilder();
-        html.append("<h3>Devolución #").append(devolucionId).append("</h3>");
-        html.append("<p><b>Fecha:</b> ").append(devolucion.getFechaDevolucion()).append("</p>");
-        html.append("<p><b>Venta ID:</b> ").append(devolucion.getVentaId()).append("</p>");
-        html.append("<p><b>Motivo:</b> ").append(devolucion.getMotivo()).append("</p>");
+        html.append("<div style='background: #ffebee; padding: 15px; border-left: 4px solid #f44336; margin-bottom: 15px;'>");
+        html.append("<h3 style='margin: 0; color: #c62828;'>Devolución #").append(devolucionId).append("</h3>");
+        html.append("</div>");
+        
+        html.append("<div style='background: #f5f5f5; padding: 10px; margin-bottom: 15px;'>");
+        html.append("<p style='margin: 5px 0;'><b>Fecha:</b> ").append(devolucion.getFechaDevolucion()).append("</p>");
+        html.append("<p style='margin: 5px 0;'><b>Venta ID:</b> ").append(devolucion.getVentaId()).append("</p>");
+        if (venta != null) {
+            html.append("<p style='margin: 5px 0;'><b>Fecha de venta:</b> ").append(venta.getFechaVenta()).append("</p>");
+            html.append("<p style='margin: 5px 0;'><b>Tipo de venta:</b> ").append(venta.getTipo()).append("</p>");
+        }
+        html.append("<p style='margin: 5px 0;'><b>Motivo:</b> ").append(devolucion.getMotivo()).append("</p>");
+        html.append("</div>");
         
         html.append("<h4>Productos devueltos:</h4>");
-        html.append("<table border='1' cellpadding='5' style='border-collapse: collapse;'>");
+        html.append("<table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>");
         html.append("<tr style='background-color: #f44336; color: white;'>");
-        html.append("<th>Producto ID</th><th>Cantidad</th></tr>");
+        html.append("<th>Producto</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th></tr>");
+        
+        BigDecimal totalDevolucion = BigDecimal.ZERO;
         
         for (DetalleDevolucionCliente det : detalles) {
+            Producto producto = productoService.buscarPorId(det.getProductoId());
+            
+            // Buscar el precio unitario de la venta original
+            BigDecimal precioUnitario = BigDecimal.ZERO;
+            for (DetalleVenta dv : detallesVenta) {
+                if (dv.getProductoId() == det.getProductoId()) {
+                    precioUnitario = dv.getPrecioUnitario();
+                    break;
+                }
+            }
+            
+            BigDecimal subtotal = precioUnitario.multiply(new BigDecimal(det.getCantidad()));
+            totalDevolucion = totalDevolucion.add(subtotal);
+            
             html.append("<tr>");
-            html.append("<td>").append(det.getProductoId()).append("</td>");
-            html.append("<td>").append(det.getCantidad()).append("</td>");
+            html.append("<td>");
+            if (producto != null) {
+                html.append("<b>").append(producto.getNombre()).append("</b><br>");
+                html.append("<small style='color: #666;'>ID: ").append(det.getProductoId()).append("</small>");
+            } else {
+                html.append("Producto ID: ").append(det.getProductoId());
+            }
+            html.append("</td>");
+            html.append("<td style='text-align: center;'>").append(det.getCantidad()).append("</td>");
+            html.append("<td style='text-align: right;'>Bs ").append(String.format("%.2f", precioUnitario)).append("</td>");
+            html.append("<td style='text-align: right;'><b>Bs ").append(String.format("%.2f", subtotal)).append("</b></td>");
             html.append("</tr>");
         }
+        
+        html.append("<tr style='background-color: #ffcdd2;'>");
+        html.append("<td colspan='3' style='text-align: right;'><b>TOTAL DEVUELTO:</b></td>");
+        html.append("<td style='text-align: right;'><b style='font-size: 16px; color: #c62828;'>Bs ").append(String.format("%.2f", totalDevolucion)).append("</b></td>");
+        html.append("</tr>");
         html.append("</table>");
+        
+        if (venta != null) {
+            html.append("<div style='background: #e3f2fd; padding: 10px; margin-top: 15px;'>");
+            html.append("<p style='margin: 5px 0;'><b>Nuevo total de la venta:</b> Bs ").append(String.format("%.2f", venta.getTotal())).append("</p>");
+            html.append("<p style='margin: 5px 0; color: #666;'><small>El monto devuelto ha sido descontado del total de la venta</small></p>");
+            html.append("</div>");
+        }
         
         return ResponseFormatter.success("Detalle de devolución", html.toString());
     }

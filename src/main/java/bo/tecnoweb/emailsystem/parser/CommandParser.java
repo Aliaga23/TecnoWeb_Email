@@ -96,7 +96,9 @@ public class CommandParser {
             // Proveedores
             "INSERTARPROVEEDOR", "MODIFICARPROVEEDOR", "ELIMINARPROVEEDOR", "LISTARPROVEEDORES", "BUSCARPROVEEDOR",
             // Devoluciones Proveedor
-            "REGISTRARDEVOLUCIONPROVEEDOR", "LISTARDEVOLUCIONESPROVEEDOR", "VERDEVOLUCIONPROVEEDOR"
+            "REGISTRARDEVOLUCIONPROVEEDOR", "LISTARDEVOLUCIONESPROVEEDOR", "VERDEVOLUCIONPROVEEDOR",
+            // Reportes
+            "REPORTEVENTASHOY", "REPORTEVENTASMES", "REPORTEVENTAS"
         };
         
         for (String cmd : comandosAdmin) {
