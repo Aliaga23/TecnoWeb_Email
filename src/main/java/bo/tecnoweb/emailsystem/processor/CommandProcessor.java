@@ -48,17 +48,29 @@ public class CommandProcessor {
             
             // Validar que el comando sea válido para el rol
             String comando = cmd.getNombre();
+            boolean comandoValidoAdmin = CommandParser.validarComandoAdmin(comando);
+            boolean comandoValidoVendedor = CommandParser.validarComandoVendedor(comando);
+            boolean comandoValidoCliente = CommandParser.validarComandoCliente(comando);
+            
+            // Verificar si el comando existe en algún rol
+            boolean comandoExiste = comandoValidoAdmin || comandoValidoVendedor || comandoValidoCliente;
+            
+            if (!comandoExiste) {
+                return ResponseFormatter.error("Comando no existe\n\nEl comando '" + comando + "' no existe en el sistema.\n\nUse HELP[] para ver los comandos disponibles.");
+            }
+            
+            // Verificar si el comando está disponible para el rol del usuario
             boolean comandoValido = false;
             
             switch (rolId) {
                 case 1: // Administrador
-                    comandoValido = CommandParser.validarComandoAdmin(comando);
+                    comandoValido = comandoValidoAdmin;
                     break;
                 case 2: // Vendedor
-                    comandoValido = CommandParser.validarComandoVendedor(comando);
+                    comandoValido = comandoValidoVendedor;
                     break;
                 case 3: // Cliente
-                    comandoValido = CommandParser.validarComandoCliente(comando);
+                    comandoValido = comandoValidoCliente;
                     break;
                 default:
                     return ResponseFormatter.error("Rol no reconocido\n\nSu rol no está configurado correctamente.");
