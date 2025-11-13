@@ -33,14 +33,14 @@ public class SMTPClient {
             sendCommand(writer, reader, "RCPT TO: <" + to + ">\r\n");
             sendCommand(writer, reader, "DATA\r\n");
             
-            // Enviar contenido del email en formato HTML
+            // Enviar contenido del email
             String emailContent = "From: " + fromEmail + "\r\n" +
                                 "To: " + to + "\r\n" +
                                 "Subject: " + subject + "\r\n" +
                                 "MIME-Version: 1.0\r\n" +
                                 "Content-Type: text/html; charset=UTF-8\r\n" +
                                 "\r\n" +
-                                body + "\r\n.\r\n";
+                                body.replace("\n", "\r\n") + "\r\n.\r\n";
             
             writer.writeBytes(emailContent);
             response = readResponse(reader);

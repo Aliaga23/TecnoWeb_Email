@@ -34,8 +34,7 @@ public class POP3Client {
         connection = new Socket(host, port);
         input = new BufferedReader(new InputStreamReader(connection.getInputStream()));
         output = new DataOutputStream(connection.getOutputStream());
-        String response = input.readLine();
-        System.out.println("S: " + response);
+        input.readLine(); // Leer saludo del servidor
     }
     
     public void close() throws IOException {
@@ -45,36 +44,25 @@ public class POP3Client {
     }
     
     public void login() throws IOException {
-        String userResponse = sendCommand("USER " + user + "\r\n");
-        System.out.println("USER response: " + userResponse);
-        
-        String passResponse = sendCommand("PASS " + password + "\r\n");
-        System.out.println("PASS response: " + passResponse);
-        
-        System.out.println("✓ Login exitoso");
+        sendCommand("USER " + user + "\r\n");
+        sendCommand("PASS " + password + "\r\n");
     }
     
     public void checkAndProcessEmails() throws IOException {
         String statResponse = sendCommand("STAT\r\n");
-        System.out.println("STAT response: " + statResponse);
-        
         int messageCount = extractMessageCount(statResponse);
-        System.out.println("Emails encontrados: " + messageCount);
         
-        if (messageCount == 0) {
-            // Verificar con LIST también
-            String listResponse = sendCommand("LIST\r\n");
-            System.out.println("LIST response:\n" + listResponse);
-        }
-        
-        for (int i = 1; i <= messageCount; i++) {
-            processMessage(i);
+        if (messageCount > 0) {
+            System.out.println("Emails encontrados: " + messageCount);
+            
+            for (int i = 1; i <= messageCount; i++) {
+                String emailContent = sendCommand("RETR " + i + "\r\n");
+                processMessageContent(i, emailContent);
+            }
         }
     }
     
-    private void processMessage(int messageNumber) throws IOException {
-        String emailContent = sendCommand("RETR " + messageNumber + "\r\n");
-        
+    private void processMessageContent(int messageNumber, String emailContent) throws IOException {
         EmailInfo emailInfo = parseEmail(emailContent);
         
         if (emailInfo != null && emailInfo.subject != null && !emailInfo.subject.trim().isEmpty()) {
@@ -102,6 +90,24 @@ public class POP3Client {
         
         // Marcar para eliminar
         sendCommand("DELE " + messageNumber + "\r\n");
+    }
+    
+    // Método completo que hace todo el ciclo: conectar, procesar, desconectar
+    public void processEmails() {
+        try {
+            connect();
+            login();
+            checkAndProcessEmails();
+            sendCommand("QUIT\r\n");
+        } catch (Exception e) {
+            System.err.println("Error procesando emails: " + e.getMessage());
+        } finally {
+            try {
+                close();
+            } catch (IOException e) {
+                // Ignorar error al cerrar
+            }
+        }
     }
     
     private EmailInfo parseEmail(String emailContent) {
@@ -171,7 +177,6 @@ public class POP3Client {
     }
     
     private String sendCommand(String command) throws IOException {
-        System.out.println("C: " + command.trim());
         output.writeBytes(command);
         output.flush();
         
@@ -179,9 +184,7 @@ public class POP3Client {
             return readMultilineResponse();
         }
         
-        String response = input.readLine();
-        System.out.println("S: " + response);
-        return response;
+        return input.readLine();
     }
     
     private String readMultilineResponse() throws IOException {
@@ -208,23 +211,5 @@ public class POP3Client {
     private static class EmailInfo {
         String from;
         String subject;
-    }
-    
-    public void processEmails() {
-        try {
-            connect();
-            login();
-            checkAndProcessEmails();
-            sendCommand("QUIT\r\n");
-        } catch (Exception e) {
-            System.err.println("Error procesando emails: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            try {
-                close();
-            } catch (IOException e) {
-                System.err.println("Error cerrando conexión: " + e.getMessage());
-            }
-        }
     }
 }

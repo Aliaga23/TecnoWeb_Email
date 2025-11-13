@@ -32,26 +32,30 @@ public class CommandParser {
     
     public static Command parsear(String asunto) {
         if (asunto == null || asunto.trim().isEmpty()) {
-            return new Command("El asunto del correo está vacío");
+            return new Command("El asunto del correo esta vacio");
         }
         
-        asunto = asunto.trim();
+        // Limpiar el asunto
+        asunto = asunto.trim()
+                       .replace("\u201C", "\"")  // comillas tipográficas izquierda
+                       .replace("\u201D", "\"")  // comillas tipográficas derecha
+                       .replace("\u2018", "'")   // comilla simple izquierda
+                       .replace("\u2019", "'");  // comilla simple derecha
         
-        // Pattern: COMANDO["param1","param2",...]
-        Pattern pattern = Pattern.compile("^([A-Z]+)\\[(.*)\\]$");
+        // Pattern: COMANDO["param1","param2",...]  
+        Pattern pattern = Pattern.compile("^([A-Za-z]+)\\[(.*)\\]$", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(asunto);
         
         if (!matcher.matches()) {
-            return new Command("Formato de comando inválido. Use: COMANDO[\"param1\",\"param2\",...]");
+            return new Command("Formato incorrecto. Use: COMANDO[\"param1\",\"param2\"]\nEjemplo: InsertarCategoria[\"Electronica\"]");
         }
         
-        String comando = matcher.group(1);
+        String comando = matcher.group(1).toUpperCase();
         String paramsStr = matcher.group(2);
         
         List<String> parametros = new ArrayList<>();
         
         if (!paramsStr.trim().isEmpty()) {
-            // Parse parameters: "param1","param2","param3"
             Pattern paramPattern = Pattern.compile("\"([^\"]*)\"");
             Matcher paramMatcher = paramPattern.matcher(paramsStr);
             
@@ -63,9 +67,25 @@ public class CommandParser {
         return new Command(comando, parametros);
     }
     
-    public static boolean validarComando(String comando) {
-        String[] comandosValidos = {"LISPER", "INSPER", "MODPER", "ELIPER"};
-        for (String cmd : comandosValidos) {
+    // Validar comandos de administrador
+    public static boolean validarComandoAdmin(String comando) {
+        String[] comandosAdmin = {
+            // Roles
+            "INSERTARROL", "LISTARROLES", "MODIFICARROL", "ELIMINARROL",
+            // Usuarios  
+            "INSERTARUSUARIO", "MODIFICARUSUARIO", "ELIMINARUSUARIO", "LISTARUSUARIOS", "BUSCARUSUARIO",
+            // Categorías
+            "INSERTARCATEGORIA", "LISTARCATEGORIAS", "MODIFICARCATEGORIA", "ELIMINARCATEGORIA",
+            // Productos
+            "INSERTARPRODUCTO", "MODIFICARPRODUCTO", "ACTUALIZARSTOCK", "ELIMINARPRODUCTO", 
+            "LISTARPRODUCTOS", "BUSCARPRODUCTO", "VERSTOCK",
+            // Proveedores
+            "INSERTARPROVEEDOR", "MODIFICARPROVEEDOR", "ELIMINARPROVEEDOR", "LISTARPROVEEDORES", "BUSCARPROVEEDOR",
+            // Devoluciones Proveedor
+            "REGISTRARDEVOLUCIONPROVEEDOR", "LISTARDEVOLUCIONESPROVEEDOR", "VERDEVOLUCIONPROVEEDOR"
+        };
+        
+        for (String cmd : comandosAdmin) {
             if (cmd.equals(comando)) {
                 return true;
             }
@@ -73,24 +93,52 @@ public class CommandParser {
         return false;
     }
     
-    public static boolean validarParametrosLISPER(List<String> params) {
-        // LISPER puede tener 0 parámetros (listar todos) o 1 parámetro (filtro)
-        return params.size() <= 1;
+    // Validar comandos de vendedor
+    public static boolean validarComandoVendedor(String comando) {
+        String[] comandosVendedor = {
+            // Gestión de Clientes
+            "REGISTRARCLIENTE", "BUSCARCLIENTE", "LISTARCLIENTES",
+            // Productos (Solo consulta)
+            "LISTARPRODUCTOS", "BUSCARPRODUCTO", "VERSTOCK",
+            // Cotización
+            "CREARCOTIZACION", "MISCOTIZACIONES", "VERCOTIZACION",
+            // Ventas
+            "CREARVENTACONTADO", "CREARVENTACREDITO", "ABONARVENTA",
+            "MISVENTAS", "VERVENTA", "LISTARVENTASPENDIENTES",
+            // Devoluciones
+            "REGISTRARDEVOLUCION", "MISDEVOLUCIONES",
+            // Consultas
+            "VENTASHOY", "MISCOMISIONESHOY"
+        };
+        
+        for (String cmd : comandosVendedor) {
+            if (cmd.equals(comando)) {
+                return true;
+            }
+        }
+        return false;
     }
     
-    public static boolean validarParametrosINSPER(List<String> params) {
-        // INSPER requiere: CI, Nombres, Apellidos, Tipo, Teléfono, Celular, Email
-        return params.size() == 7;
-    }
-    
-    public static boolean validarParametrosMODPER(List<String> params) {
-        // MODPER requiere: CI (identificador) + campos a modificar
-        // Mínimo 2 parámetros (CI + al menos un campo)
-        return params.size() >= 2 && params.size() <= 8;
-    }
-    
-    public static boolean validarParametrosELIPER(List<String> params) {
-        // ELIPER requiere: CI
-        return params.size() == 1;
+    // Validar comandos de cliente
+    public static boolean validarComandoCliente(String comando) {
+        String[] comandosCliente = {
+            // Consultas de Productos
+            "CATALOGO", "BUSCARPRODUCTO", "VERPRODUCTO",
+            // Mis Cotizaciones
+            "MISCOTIZACIONES", "VERCOTIZACION",
+            // Mis Compras
+            "MISCOMPRAS", "MISCOMPRASPENDIENTES", "VERCOMPRA", "MISALDO",
+            // Mis Pagos
+            "MISPAGOS", "PAGOSDECOMPRA",
+            // Mis Devoluciones
+            "MISDEVOLUCIONES", "VERDEVOLUCION"
+        };
+        
+        for (String cmd : comandosCliente) {
+            if (cmd.equals(comando)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
