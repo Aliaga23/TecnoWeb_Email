@@ -391,16 +391,18 @@ public class VendedorCommandProcessor {
     }
     
     private String crearVentaCredito(List<String> params, Usuario vendedor) throws SQLException {
-        if (params.size() != 2) {
-            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACREDITO[\"ci_cliente\",\"productos\"]<br>" +
-                "Formato productos: \"id:cantidad,id:cantidad\"<br>Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\"]");
+        if (params.size() != 4) {
+            return ResponseFormatter.error("Parametros incorrectos. Use: CREARVENTACREDITO[\"ci_cliente\",\"productos\",\"monto_inicial\",\"metodo_pago\"]<br>" +
+                "Formato productos: \"id:cantidad,id:cantidad\"<br>" +
+                "Métodos: efectivo, qr, tarjeta<br>" +
+                "Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\",\"500\",\"efectivo\"]");
         }
         
         String ci = params.get(0);
         String productos = params.get(1);
+        BigDecimal montoInicial = new BigDecimal(params.get(2));
+        String metodoPago = params.get(3);
         int vendedorId = vendedor.getId();
-        BigDecimal montoInicial = BigDecimal.ZERO;
-        String metodoPago = "pendiente";
         
         // Buscar cliente por CI
         Usuario cliente = clienteService.buscarPorCI(ci);
@@ -414,8 +416,23 @@ public class VendedorCommandProcessor {
         List<Venta> ventas = ventaService.listarPorVendedor(vendedorId);
         int ventaId = ventas.get(0).getId();
         
-        return ResponseFormatter.success("Venta a credito registrada", 
-            "ID de venta: " + ventaId + "<br>Estado: PENDIENTE<br>Use ABONARVENTA para registrar pagos");
+        Venta venta = ventaService.buscarPorId(ventaId);
+        String estado = venta.getEstado();
+        
+        StringBuilder html = new StringBuilder();
+        html.append("<div style='background: #e3f2fd; padding: 15px; border-radius: 5px;'>");
+        html.append("<h3 style='color: #1976d2; margin-top: 0;'>✓ Venta a Crédito Registrada</h3>");
+        html.append("<p><b>ID de Venta:</b> <span style='font-size: 20px; color: #0d47a1;'>#").append(ventaId).append("</span></p>");
+        html.append("<p><b>Total:</b> Bs ").append(String.format("%.2f", venta.getTotal())).append("</p>");
+        html.append("<p><b>Monto inicial:</b> Bs ").append(String.format("%.2f", montoInicial)).append("</p>");
+        html.append("<p><b>Saldo pendiente:</b> Bs ").append(String.format("%.2f", venta.getTotal().subtract(montoInicial))).append("</p>");
+        html.append("<p><b>Estado:</b> <span style='color: ").append(estado.equals("pagada") ? "#2e7d32" : "#d32f2f").append(";'>")
+            .append(estado.toUpperCase()).append("</span></p>");
+        html.append("<hr style='border: 1px solid #90caf9;'>");
+        html.append("<p style='color: #1565c0;'><i>Use ABONARVENTA[\"").append(ventaId).append("\",\"monto\",\"metodo\"] para registrar pagos adicionales</i></p>");
+        html.append("</div>");
+        
+        return ResponseFormatter.success("Venta a crédito registrada", html.toString());
     }
     
     private String abonarVenta(List<String> params) throws SQLException {
@@ -722,8 +739,8 @@ public class VendedorCommandProcessor {
         help.append("<ul>");
         help.append("<li><strong>CREARVENTACONTADO[\"ci_cliente\",\"id:cant,id:cant,...\",\"metodo\"]</strong> - Venta al contado<br>");
         help.append("Métodos: efectivo, qr, tarjeta<br>Ejemplo: CREARVENTACONTADO[\"7812899\",\"1:2,3:1\",\"efectivo\"]</li>");
-        help.append("<li><strong>CREARVENTACREDITO[\"ci_cliente\",\"id:cant,id:cant,...\"]</strong> - Venta a crédito<br>");
-        help.append("Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\"]</li>");
+        help.append("<li><strong>CREARVENTACREDITO[\"ci_cliente\",\"id:cant,id:cant,...\",\"monto_inicial\",\"metodo\"]</strong> - Venta a crédito<br>");
+        help.append("Métodos: efectivo, qr, tarjeta<br>Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\",\"500\",\"efectivo\"]</li>");
         help.append("<li><strong>ABONARVENTA[\"venta_id\",\"monto\",\"metodo\"]</strong> - Registrar abono a venta</li>");
         help.append("<li><strong>MISVENTAS[]</strong> - Ver mis ventas</li>");
         help.append("<li><strong>VERVENTA[\"id\"]</strong> - Ver detalles de venta</li>");
