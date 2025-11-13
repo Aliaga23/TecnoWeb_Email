@@ -10,10 +10,14 @@ public class CommandProcessor {
     
     private final UsuarioService usuarioService;
     private final AdminCommandProcessor adminProcessor;
+    private final VendedorCommandProcessor vendedorProcessor;
+    private final ClienteCommandProcessor clienteProcessor;
     
     public CommandProcessor() {
         this.usuarioService = new UsuarioService();
         this.adminProcessor = new AdminCommandProcessor();
+        this.vendedorProcessor = new VendedorCommandProcessor();
+        this.clienteProcessor = new ClienteCommandProcessor();
     }
     
     public String processCommand(String asunto, String remitente) {
@@ -42,10 +46,36 @@ public class CommandProcessor {
             // Obtener el rol del usuario
             int rolId = usuario.getRolId();
             
+            // Validar que el comando sea válido para el rol
+            String comando = cmd.getNombre();
+            boolean comandoValido = false;
+            
+            switch (rolId) {
+                case 1: // Administrador
+                    comandoValido = CommandParser.validarComandoAdmin(comando);
+                    break;
+                case 2: // Vendedor
+                    comandoValido = CommandParser.validarComandoVendedor(comando);
+                    break;
+                case 3: // Cliente
+                    comandoValido = CommandParser.validarComandoCliente(comando);
+                    break;
+                default:
+                    return ResponseFormatter.error("Rol no reconocido\n\nSu rol no está configurado correctamente.");
+            }
+            
+            if (!comandoValido) {
+                return ResponseFormatter.error("Comando no autorizado\n\nEl comando '" + comando + "' no está disponible para su rol.");
+            }
+            
             // Delegar al processor correspondiente según el rol
             switch (rolId) {
                 case 1: // Administrador
                     return adminProcessor.procesarComando(cmd, remitente);
+                case 2: // Vendedor
+                    return vendedorProcessor.procesarComando(comando, cmd.getParametros(), usuario);
+                case 3: // Cliente
+                    return clienteProcessor.procesarComando(comando, cmd.getParametros(), usuario);
                 default:
                     return ResponseFormatter.error("Sin permisos\n\nSu rol no tiene permisos para ejecutar comandos.");
             }

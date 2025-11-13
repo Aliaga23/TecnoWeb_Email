@@ -27,6 +27,10 @@ public class ClienteCommandProcessor {
     public String procesarComando(String comando, List<String> parametros, Usuario cliente) {
         try {
             switch (comando) {
+                // ===== AYUDA =====
+                case "HELP":
+                    return mostrarHelp();
+                    
                 // ===== CONSULTA DE PRODUCTOS =====
                 case "CATALOGO":
                     return catalogo(parametros);
@@ -519,5 +523,52 @@ public class ClienteCommandProcessor {
         html.append("</table>");
         
         return ResponseFormatter.success("Detalle de devolución", html.toString());
+    }
+    
+    // ==================== AYUDA ====================
+    
+    private String mostrarHelp() {
+        StringBuilder help = new StringBuilder();
+        help.append("<div style='font-family: Arial, sans-serif;'>");
+        help.append("<h2 style='color: #2c3e50;'>COMANDOS DISPONIBLES - CLIENTE</h2>");
+        
+        help.append("<h3 style='color: #e74c3c;'>CONSULTA DE PRODUCTOS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>CATALOGO[]</strong> - Ver catálogo completo de productos</li>");
+        help.append("<li><strong>CATALOGO[\"categoria\"]</strong> - Ver productos por categoría</li>");
+        help.append("<li><strong>BUSCARPRODUCTO[\"nombre\"]</strong> - Buscar producto por nombre</li>");
+        help.append("<li><strong>VERPRODUCTO[\"id\"]</strong> - Ver detalles de un producto</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #e74c3c;'>MIS COTIZACIONES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>MISCOTIZACIONES[]</strong> - Ver todas mis cotizaciones</li>");
+        help.append("<li><strong>VERCOTIZACION[\"id\"]</strong> - Ver detalles de una cotización</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #e74c3c;'>MIS COMPRAS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>MISCOMPRAS[]</strong> - Ver todas mis compras</li>");
+        help.append("<li><strong>MISCOMPRASPENDIENTES[]</strong> - Ver compras con saldo pendiente</li>");
+        help.append("<li><strong>VERCOMPRA[\"id\"]</strong> - Ver detalles de una compra</li>");
+        help.append("<li><strong>MISALDO[]</strong> - Ver mi saldo total pendiente</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #e74c3c;'>MIS PAGOS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>MISPAGOS[]</strong> - Ver todos mis pagos realizados</li>");
+        help.append("<li><strong>PAGOSDECOMPRA[\"venta_id\"]</strong> - Ver pagos de una compra específica</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #e74c3c;'>MIS DEVOLUCIONES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>MISDEVOLUCIONES[]</strong> - Ver todas mis devoluciones</li>");
+        help.append("<li><strong>VERDEVOLUCION[\"id\"]</strong> - Ver detalles de una devolución</li>");
+        help.append("</ul>");
+        
+        help.append("<p style='margin-top: 20px; color: #7f8c8d;'><em>Nota: Los parámetros entre comillas dobles son obligatorios. Los corchetes [] indican sin parámetros.</em></p>");
+        help.append("</div>");
+        
+        return ResponseFormatter.success("Ayuda del Sistema", help.toString());
     }
 }

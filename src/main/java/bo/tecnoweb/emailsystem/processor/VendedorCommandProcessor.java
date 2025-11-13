@@ -28,6 +28,10 @@ public class VendedorCommandProcessor {
     public String procesarComando(String comando, List<String> parametros, Usuario vendedor) {
         try {
             switch (comando) {
+                // ===== AYUDA =====
+                case "HELP":
+                    return mostrarHelp();
+                    
                 // ===== GESTIÓN DE CLIENTES =====
                 case "REGISTRARCLIENTE":
                     return registrarCliente(parametros);
@@ -601,5 +605,62 @@ public class VendedorCommandProcessor {
         }
         
         return ResponseFormatter.success("Mis devoluciones (" + count + ")", html.toString());
+    }
+    
+    // ==================== AYUDA ====================
+    
+    private String mostrarHelp() {
+        StringBuilder help = new StringBuilder();
+        help.append("<div style='font-family: Arial, sans-serif;'>");
+        help.append("<h2 style='color: #2c3e50;'>COMANDOS DISPONIBLES - VENDEDOR</h2>");
+        
+        help.append("<h3 style='color: #3498db;'>GESTIÓN DE CLIENTES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>REGISTRARCLIENTE[\"nombre\",\"apellido\",\"email\",\"telefono\",\"nit\"]</strong> - Registrar nuevo cliente</li>");
+        help.append("<li><strong>BUSCARCLIENTE[\"email\"]</strong> - Buscar cliente por email</li>");
+        help.append("<li><strong>LISTARCLIENTES[]</strong> - Listar todos los clientes</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #3498db;'>CONSULTA DE PRODUCTOS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>LISTARPRODUCTOS[]</strong> - Listar todos los productos</li>");
+        help.append("<li><strong>LISTARPRODUCTOS[\"categoria\"]</strong> - Listar productos por categoría</li>");
+        help.append("<li><strong>BUSCARPRODUCTO[\"nombre\"]</strong> - Buscar producto por nombre</li>");
+        help.append("<li><strong>VERSTOCK[\"producto_id\"]</strong> - Ver stock de un producto</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #3498db;'>COTIZACIONES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>CREARCOTIZACION[\"cliente_email\",\"producto_id\",\"cantidad\",\"producto_id\",\"cantidad\",...]</strong> - Crear cotización</li>");
+        help.append("<li><strong>MISCOTIZACIONES[]</strong> - Ver mis cotizaciones</li>");
+        help.append("<li><strong>VERCOTIZACION[\"id\"]</strong> - Ver detalles de cotización</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #3498db;'>VENTAS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>CREARVENTACONTADO[\"cliente_email\",\"producto_id\",\"cantidad\",\"producto_id\",\"cantidad\",...]</strong> - Venta al contado</li>");
+        help.append("<li><strong>CREARVENTACREDITO[\"cliente_email\",\"dias_credito\",\"producto_id\",\"cantidad\",...]</strong> - Venta a crédito</li>");
+        help.append("<li><strong>ABONARVENTA[\"venta_id\",\"monto\"]</strong> - Registrar abono a venta</li>");
+        help.append("<li><strong>MISVENTAS[]</strong> - Ver mis ventas</li>");
+        help.append("<li><strong>VERVENTA[\"id\"]</strong> - Ver detalles de venta</li>");
+        help.append("<li><strong>LISTARVENTASPENDIENTES[]</strong> - Listar ventas pendientes de pago</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #3498db;'>DEVOLUCIONES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>REGISTRARDEVOLUCION[\"venta_id\",\"observacion\",\"producto_id\",\"cantidad\",\"motivo\"]</strong> - Registrar devolución</li>");
+        help.append("<li><strong>MISDEVOLUCIONES[]</strong> - Ver mis devoluciones</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #3498db;'>CONSULTAS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>VENTASHOY[]</strong> - Ver total de ventas del día</li>");
+        help.append("<li><strong>MISCOMISIONESHOY[]</strong> - Ver comisiones ganadas hoy</li>");
+        help.append("</ul>");
+        
+        help.append("<p style='margin-top: 20px; color: #7f8c8d;'><em>Nota: Los parámetros entre comillas dobles son obligatorios. Los corchetes [] indican sin parámetros.</em></p>");
+        help.append("</div>");
+        
+        return ResponseFormatter.success("Ayuda del Sistema", help.toString());
     }
 }

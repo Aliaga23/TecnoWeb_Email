@@ -29,6 +29,10 @@ public class AdminCommandProcessor {
     public String procesarComando(Command comando, String emailUsuario) {
         try {
             switch (comando.getNombre()) {
+                // AYUDA
+                case "HELP":
+                    return mostrarHelp();
+                    
                 // ROLES
                 case "INSERTARROL":
                     return insertarRol(comando);
@@ -599,5 +603,70 @@ public class AdminCommandProcessor {
         } catch (SQLException e) {
             return ResponseFormatter.error("Error al listar devoluciones: " + e.getMessage());
         }
+    }
+    
+    // ==================== AYUDA ====================
+    
+    private String mostrarHelp() {
+        StringBuilder help = new StringBuilder();
+        help.append("<div style='font-family: Arial, sans-serif;'>");
+        help.append("<h2 style='color: #2c3e50;'>COMANDOS DISPONIBLES - ADMINISTRADOR</h2>");
+        
+        help.append("<h3 style='color: #27ae60;'>GESTIÓN DE ROLES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>INSERTARROL[\"nombre\"]</strong> - Crear nuevo rol</li>");
+        help.append("<li><strong>LISTARROLES[]</strong> - Listar todos los roles</li>");
+        help.append("<li><strong>MODIFICARROL[\"id\",\"nuevo_nombre\"]</strong> - Modificar rol existente</li>");
+        help.append("<li><strong>ELIMINARROL[\"id\"]</strong> - Eliminar rol</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #27ae60;'>GESTIÓN DE USUARIOS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>INSERTARUSUARIO[\"nombre\",\"apellido\",\"email\",\"contraseña\",\"rol_id\"]</strong> - Crear usuario</li>");
+        help.append("<li><strong>MODIFICARUSUARIO[\"id\",\"nombre\",\"apellido\",\"email\",\"rol_id\"]</strong> - Modificar usuario</li>");
+        help.append("<li><strong>ELIMINARUSUARIO[\"id\"]</strong> - Eliminar usuario</li>");
+        help.append("<li><strong>LISTARUSUARIOS[]</strong> - Listar todos los usuarios</li>");
+        help.append("<li><strong>BUSCARUSUARIO[\"email\"]</strong> - Buscar usuario por email</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #27ae60;'>GESTIÓN DE CATEGORÍAS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>INSERTARCATEGORIA[\"nombre\"]</strong> - Crear categoría</li>");
+        help.append("<li><strong>LISTARCATEGORIAS[]</strong> - Listar todas las categorías</li>");
+        help.append("<li><strong>MODIFICARCATEGORIA[\"id\",\"nuevo_nombre\"]</strong> - Modificar categoría</li>");
+        help.append("<li><strong>ELIMINARCATEGORIA[\"id\"]</strong> - Eliminar categoría</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #27ae60;'>GESTIÓN DE PRODUCTOS</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>INSERTARPRODUCTO[\"nombre\",\"descripcion\",\"stock\",\"precio\",\"categoria\"]</strong> - Crear producto</li>");
+        help.append("<li><strong>MODIFICARPRODUCTO[\"id\",\"nombre\",\"descripcion\",\"precio\",\"categoria\"]</strong> - Modificar producto</li>");
+        help.append("<li><strong>ACTUALIZARSTOCK[\"id\",\"cantidad\"]</strong> - Actualizar stock de producto</li>");
+        help.append("<li><strong>ELIMINARPRODUCTO[\"id\"]</strong> - Eliminar producto</li>");
+        help.append("<li><strong>LISTARPRODUCTOS[]</strong> - Listar todos los productos</li>");
+        help.append("<li><strong>LISTARPRODUCTOS[\"categoria\"]</strong> - Listar productos por categoría</li>");
+        help.append("<li><strong>BUSCARPRODUCTO[\"nombre\"]</strong> - Buscar producto por nombre</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #27ae60;'>GESTIÓN DE PROVEEDORES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>INSERTARPROVEEDOR[\"nombre\",\"contacto\",\"telefono\",\"email\"]</strong> - Crear proveedor</li>");
+        help.append("<li><strong>MODIFICARPROVEEDOR[\"id\",\"nombre\",\"contacto\",\"telefono\",\"email\"]</strong> - Modificar proveedor</li>");
+        help.append("<li><strong>ELIMINARPROVEEDOR[\"id\"]</strong> - Eliminar proveedor</li>");
+        help.append("<li><strong>LISTARPROVEEDORES[]</strong> - Listar todos los proveedores</li>");
+        help.append("<li><strong>BUSCARPROVEEDOR[\"nombre\"]</strong> - Buscar proveedor</li>");
+        help.append("</ul>");
+        
+        help.append("<h3 style='color: #27ae60;'>DEVOLUCIONES A PROVEEDORES</h3>");
+        help.append("<ul>");
+        help.append("<li><strong>REGISTRARDEVOLUCIONPROVEEDOR[\"proveedor_id\",\"observacion\",\"producto_id\",\"cantidad\",\"motivo\"]</strong> - Registrar devolución</li>");
+        help.append("<li><strong>LISTARDEVOLUCIONESPROVEEDOR[]</strong> - Listar devoluciones a proveedores</li>");
+        help.append("<li><strong>VERDEVOLUCIONPROVEEDOR[\"id\"]</strong> - Ver detalles de devolución</li>");
+        help.append("</ul>");
+        
+        help.append("<p style='margin-top: 20px; color: #7f8c8d;'><em>Nota: Los parámetros entre comillas dobles son obligatorios. Los corchetes [] indican sin parámetros.</em></p>");
+        help.append("</div>");
+        
+        return ResponseFormatter.success("Ayuda del Sistema", help.toString());
     }
 }

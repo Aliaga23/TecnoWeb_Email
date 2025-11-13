@@ -1,9 +1,11 @@
 package bo.tecnoweb.emailsystem.parser;
 
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.mail.internet.MimeUtility;
 
 public class CommandParser {
     
@@ -33,6 +35,16 @@ public class CommandParser {
     public static Command parsear(String asunto) {
         if (asunto == null || asunto.trim().isEmpty()) {
             return new Command("El asunto del correo esta vacio");
+        }
+        
+        // Decodificar asunto MIME (RFC 2047) si está codificado
+        try {
+            // Eliminar espacios entre partes codificadas consecutivas
+            asunto = asunto.replaceAll("\\?=\\s+=\\?", "?==?");
+            asunto = MimeUtility.decodeText(asunto);
+        } catch (Exception e) {
+            // Si falla la decodificación, usar el asunto original
+            System.out.println("Advertencia: no se pudo decodificar el asunto MIME: " + e.getMessage());
         }
         
         // Limpiar el asunto
@@ -70,6 +82,8 @@ public class CommandParser {
     // Validar comandos de administrador
     public static boolean validarComandoAdmin(String comando) {
         String[] comandosAdmin = {
+            // Ayuda
+            "HELP",
             // Roles
             "INSERTARROL", "LISTARROLES", "MODIFICARROL", "ELIMINARROL",
             // Usuarios  
@@ -96,6 +110,8 @@ public class CommandParser {
     // Validar comandos de vendedor
     public static boolean validarComandoVendedor(String comando) {
         String[] comandosVendedor = {
+            // Ayuda
+            "HELP",
             // Gestión de Clientes
             "REGISTRARCLIENTE", "BUSCARCLIENTE", "LISTARCLIENTES",
             // Productos (Solo consulta)
@@ -122,6 +138,8 @@ public class CommandParser {
     // Validar comandos de cliente
     public static boolean validarComandoCliente(String comando) {
         String[] comandosCliente = {
+            // Ayuda
+            "HELP",
             // Consultas de Productos
             "CATALOGO", "BUSCARPRODUCTO", "VERPRODUCTO",
             // Mis Cotizaciones
