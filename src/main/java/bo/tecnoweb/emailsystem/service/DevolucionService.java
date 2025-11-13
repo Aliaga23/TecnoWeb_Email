@@ -155,7 +155,7 @@ public class DevolucionService {
         return detalles;
     }
     
-    public void registrarDevolucionCompleta(int ventaId, String productos, String motivo) throws SQLException {
+    public int registrarDevolucionCompleta(int ventaId, String productos, String motivo) throws SQLException {
         // Crear la devolucion
         Devolucion devolucion = new Devolucion();
         devolucion.setFechaDevolucion(new Date(System.currentTimeMillis()));
@@ -217,6 +217,8 @@ public class DevolucionService {
         }
         venta.setTotal(nuevoTotal);
         ventaService.actualizar(venta);
+        
+        return devolucionId;
     }
     
     public List<Devolucion> listarPorCliente(int clienteId) throws SQLException {

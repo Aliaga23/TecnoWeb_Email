@@ -92,10 +92,14 @@ public class DevolucionProveedorService {
             detalle.setCantidad(cantidad);
             insertarDetalle(detalle);
             
-            // Aumentar stock del producto
+            // Reducir stock del producto (devolvemos productos al proveedor)
             var producto = productoService.buscarPorId(productoId);
             if (producto != null) {
-                int nuevoStock = producto.getStockActual() + cantidad;
+                int nuevoStock = producto.getStockActual() - cantidad;
+                if (nuevoStock < 0) {
+                    throw new SQLException("Stock insuficiente para el producto ID " + productoId + 
+                        ". Stock actual: " + producto.getStockActual() + ", cantidad a devolver: " + cantidad);
+                }
                 productoService.actualizarStock(productoId, nuevoStock);
             }
         }

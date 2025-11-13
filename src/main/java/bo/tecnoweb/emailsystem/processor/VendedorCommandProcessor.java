@@ -641,10 +641,20 @@ public class VendedorCommandProcessor {
         String productos = params.get(1);
         String motivo = params.get(2);
         
-        devolucionService.registrarDevolucionCompleta(ventaId, productos, motivo);
+        int devolucionId = devolucionService.registrarDevolucionCompleta(ventaId, productos, motivo);
         
-        return ResponseFormatter.success("Devolucion registrada exitosamente", 
-            "Los productos han sido devueltos al inventario<br>Motivo: " + motivo);
+        StringBuilder html = new StringBuilder();
+        html.append("<div style='background: #e8f5e9; padding: 15px; border-radius: 5px; margin: 10px 0;'>");
+        html.append("<h3 style='color: #2e7d32; margin-top: 0;'>✓ Devolución registrada exitosamente</h3>");
+        html.append("<p><b>ID de Devolución:</b> <span style='font-size: 20px; color: #1b5e20;'>#").append(devolucionId).append("</span></p>");
+        html.append("<p><b>Venta ID:</b> ").append(ventaId).append("</p>");
+        html.append("<p><b>Motivo:</b> ").append(motivo).append("</p>");
+        html.append("<hr style='border: 1px solid #c8e6c9;'>");
+        html.append("<p style='color: #558b2f;'><i>• Los productos han sido devueltos al inventario</i></p>");
+        html.append("<p style='color: #558b2f;'><i>• El total de la venta ha sido ajustado</i></p>");
+        html.append("</div>");
+        
+        return ResponseFormatter.success("Devolucion registrada", html.toString());
     }
     
     private String misDevoluciones(Usuario vendedor) throws SQLException {
