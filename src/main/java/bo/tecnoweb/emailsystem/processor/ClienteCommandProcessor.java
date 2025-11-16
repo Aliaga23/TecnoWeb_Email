@@ -288,7 +288,7 @@ public class ClienteCommandProcessor {
             html.append("</tr>");
         }
         html.append("</table>");
-        html.append("<p><i>Use MISALDO[\"venta_id\"] para ver cuánto falta pagar</i></p>");
+        html.append("<p><i>Use MISALDO    [\"venta_id\"] para ver cuánto falta pagar</i></p>");
         
         return ResponseFormatter.success("Compras pendientes (" + ventas.size() + ")", html.toString());
     }
@@ -602,7 +602,7 @@ public class ClienteCommandProcessor {
         help.append("<li><strong>MISCOMPRAS[]</strong> - Ver todas mis compras</li>");
         help.append("<li><strong>MISCOMPRASPENDIENTES[]</strong> - Ver compras con saldo pendiente</li>");
         help.append("<li><strong>VERCOMPRA[\"id\"]</strong> - Ver detalles de una compra</li>");
-        help.append("<li><strong>MISALDO[]</strong> - Ver mi saldo total pendiente</li>");
+        help.append("<li><strong> </strong> - MISALDO [] Ver mi saldo total pendiente , usar ventaid dentro del [] </li>");
         help.append("</ul>");
         
         help.append("<h3 style='color: #e74c3c;'>MIS PAGOS</h3>");

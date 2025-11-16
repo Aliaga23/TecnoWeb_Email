@@ -62,6 +62,8 @@ public class AdminCommandProcessor {
                 // PRODUCTOS
                 case "INSERTARPRODUCTO":
                     return insertarProducto(comando);
+                case "MODIFICARPRODUCTO":
+                    return modificarProducto(comando);
                 case "ACTUALIZARSTOCK":
                     return actualizarStock(comando);
                 case "ELIMINARPRODUCTO":
@@ -81,7 +83,7 @@ public class AdminCommandProcessor {
                     
                 // DEVOLUCIONES A PROVEEDORES
                 case "REGISTRARDEVOLUCIONPROVEEDOR":
-                    return registrarDevolucionProveedor(comando);
+                    return registrarDevolucionProveedor(comando, emailUsuario);
                 case "LISTARDEVOLUCIONESPROVEEDOR":
                     return listarDevolucionesProveedor();
                     
@@ -383,6 +385,55 @@ public class AdminCommandProcessor {
         }
     }
     
+    private String modificarProducto(Command comando) {
+        if (comando.getParametros().size() != 5) {
+            return ResponseFormatter.error("ModificarProducto requiere 5 parametros:\nid, nombre, descripcion, precio, categoria_nombre\n\nEjemplo:\nModificarProducto[\"1\",\"Laptop Gaming\",\"Laptop HP Gaming\",\"6000.00\",\"Electronica\"]");
+        }
+        
+        try {
+            int id = Integer.parseInt(comando.getParametros().get(0));
+            String nombre = comando.getParametros().get(1);
+            String descripcion = comando.getParametros().get(2);
+            BigDecimal precio = new BigDecimal(comando.getParametros().get(3));
+            String categoriaNombre = comando.getParametros().get(4);
+            
+            // Verificar que el producto existe
+            Producto producto = productoService.buscarPorId(id);
+            if (producto == null) {
+                return ResponseFormatter.error("Producto no encontrado con ID: " + id);
+            }
+            
+            // Buscar categoria por nombre, si no existe crearla
+            Categoria categoria = categoriaService.buscarPorNombre(categoriaNombre);
+            if (categoria == null) {
+                categoriaService.insertar(categoriaNombre);
+                categoria = categoriaService.buscarPorNombre(categoriaNombre);
+            }
+            
+            // Actualizar el producto
+            Producto productoActualizado = new Producto();
+            productoActualizado.setId(id);
+            productoActualizado.setNombre(nombre);
+            productoActualizado.setDescripcion(descripcion);
+            productoActualizado.setPrecioUnitario(precio);
+            productoActualizado.setStockActual(producto.getStockActual()); // Mantener el stock actual
+            productoActualizado.setCategoriaId(categoria.getId());
+            
+            productoService.actualizar(productoActualizado);
+            
+            return ResponseFormatter.success("Producto Modificado", 
+                "Producto ID " + id + " modificado exitosamente:\n" +
+                "Nombre: " + nombre + "\n" +
+                "Descripción: " + descripcion + "\n" +
+                "Precio: " + precio + "\n" +
+                "Categoría: " + categoriaNombre);
+        } catch (SQLException e) {
+            return ResponseFormatter.error("Error al modificar producto: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            return ResponseFormatter.error("ID y precio deben ser numeros validos");
+        }
+    }
+
     private String actualizarStock(Command comando) {
         if (comando.getParametros().size() != 2) {
             return ResponseFormatter.error("ActualizarStock requiere 2 parametros: idProducto, nuevoStock");
@@ -561,26 +612,102 @@ public class AdminCommandProcessor {
     
     // ==================== DEVOLUCIONES A PROVEEDORES ====================
     
-    private String registrarDevolucionProveedor(Command comando) {
-        if (comando.getParametros().size() != 2) {
-            return ResponseFormatter.error("RegistrarDevolucionProveedor requiere 2 parametros:\\nproveedor_id, productos\\n\\nEjemplo:\\nRegistrarDevolucionProveedor[\"1\",\"5:10,8:5\"]\\n(producto 5: 10 unidades, producto 8: 5 unidades)");
+    private String registrarDevolucionProveedor(Command comando, String emailUsuario) {
+        if (comando.getParametros().size() != 5) {
+            return ResponseFormatter.error("RegistrarDevolucionProveedor requiere 5 parametros:\\nproveedor_id, observacion, producto_id, cantidad, motivo\\n\\nEjemplo:\\nRegistrarDevolucionProveedor[\"1\",\"Producto defectuoso\",\"5\",\"10\",\"Daño en transporte\"]");
         }
         
         try {
+            // Obtener el usuario por email
+            Usuario usuario = usuarioService.buscarPorCorreo(emailUsuario);
+            if (usuario == null) {
+                return ResponseFormatter.error("Usuario no encontrado: " + emailUsuario);
+            }
             int proveedorId = Integer.parseInt(comando.getParametros().get(0));
-            String productos = comando.getParametros().get(1);
+            String observacion = comando.getParametros().get(1);
+            int productoId = Integer.parseInt(comando.getParametros().get(2));
+            int cantidad = Integer.parseInt(comando.getParametros().get(3));
+            String motivo = comando.getParametros().get(4);
             
-            // Obtener el usuario actual (esto debería venir del contexto, por ahora usamos 1)
-            int usuarioId = 1; // TODO: Obtener del usuario autenticado
+            // Validar cantidad positiva
+            if (cantidad <= 0) {
+                return ResponseFormatter.error("La cantidad debe ser mayor a 0");
+            }
             
-            devolucionProveedorService.registrarDevolucionCompleta(proveedorId, usuarioId, productos);
+            // Verificar que el proveedor existe
+            Proveedor proveedor = proveedorService.buscarPorId(proveedorId);
+            if (proveedor == null) {
+                return ResponseFormatter.error("Proveedor no encontrado con ID: " + proveedorId);
+            }
             
-            return ResponseFormatter.success("Devolucion Registrada", 
-                "Devolucion al proveedor ID " + proveedorId + " registrada exitosamente.\\nStock actualizado automaticamente.");
+            // Verificar que el producto existe
+            Producto producto = productoService.buscarPorId(productoId);
+            if (producto == null) {
+                return ResponseFormatter.error("Producto no encontrado con ID: " + productoId);
+            }
+            
+            // Verificar stock suficiente
+            if (producto.getStockActual() < cantidad) {
+                return ResponseFormatter.error("Stock insuficiente. Stock actual: " + producto.getStockActual() + ", cantidad solicitada: " + cantidad);
+            }
+            
+            // Crear la devolución
+            DevolucionProveedor devolucion = new DevolucionProveedor();
+            devolucion.setFechaDevolucion(new java.sql.Date(System.currentTimeMillis()));
+            devolucion.setProveedorId(proveedorId);
+            devolucion.setObservacion(observacion + " - Motivo: " + motivo);
+            devolucion.setUsuarioId(usuario.getId());
+            
+            // Insertar la devolución
+            int devolucionId = devolucionProveedorService.insertar(devolucion);
+            
+            // Crear el detalle
+            DetalleDevolucionProveedor detalle = new DetalleDevolucionProveedor();
+            detalle.setIdDevolucionProveedor(devolucionId);
+            detalle.setProductoId(productoId);
+            detalle.setCantidad(cantidad);
+            
+            // Insertar el detalle
+            devolucionProveedorService.insertarDetalle(detalle);
+            
+            // Actualizar stock (decrementar porque devolvemos al proveedor)
+            int nuevoStock = producto.getStockActual() - cantidad;
+            productoService.actualizarStock(productoId, nuevoStock);
+            
+            // Crear tabla HTML con los detalles de la devolución
+            StringBuilder html = new StringBuilder();
+            html.append("<h3>Devolución Registrada Exitosamente</h3>");
+            html.append("<div style='background: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+            html.append("<p><strong>ID Devolución:</strong> ").append(devolucionId).append("</p>");
+            html.append("<p><strong>Proveedor:</strong> ").append(proveedor.getNombre()).append("</p>");
+            html.append("<p><strong>Producto:</strong> ").append(producto.getNombre()).append("</p>");
+            html.append("<p><strong>Cantidad devuelta:</strong> ").append(cantidad).append(" unidades</p>");
+            html.append("<p><strong>Motivo:</strong> ").append(motivo).append("</p>");
+            html.append("<p><strong>Observación:</strong> ").append(observacion).append("</p>");
+            html.append("<p><strong>Stock actualizado:</strong> ").append(nuevoStock).append(" unidades</p>");
+            html.append("</div>");
+            
+            html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
+            html.append("<tr style='background: #4CAF50; color: white;'>");
+            html.append("<th>Campo</th><th>Valor</th>");
+            html.append("</tr>");
+            html.append("<tr><td>ID Devolución</td><td>").append(devolucionId).append("</td></tr>");
+            html.append("<tr><td>Proveedor</td><td>").append(proveedor.getNombre()).append("</td></tr>");
+            html.append("<tr><td>Producto</td><td>").append(producto.getNombre()).append("</td></tr>");
+            html.append("<tr><td>Cantidad</td><td>").append(cantidad).append("</td></tr>");
+            html.append("<tr><td>Precio Unitario</td><td>Bs ").append(producto.getPrecioUnitario()).append("</td></tr>");
+            html.append("<tr><td>Motivo</td><td>").append(motivo).append("</td></tr>");
+            html.append("<tr><td>Observación</td><td>").append(observacion).append("</td></tr>");
+            html.append("<tr><td>Stock Anterior</td><td>").append(producto.getStockActual()).append("</td></tr>");
+            html.append("<tr><td>Stock Actual</td><td>").append(nuevoStock).append("</td></tr>");
+            html.append("</table>");
+            
+            return ResponseFormatter.success("Devolucion Registrada", html.toString());
+                
         } catch (SQLException e) {
             return ResponseFormatter.error("Error al registrar devolucion: " + e.getMessage());
         } catch (NumberFormatException e) {
-            return ResponseFormatter.error("Formato invalido. Use: proveedor_id numerico y productos como \\\"id:cantidad,id:cantidad\\\"");
+            return ResponseFormatter.error("Formato invalido. Los IDs y cantidad deben ser numeros validos");
         }
     }
     
@@ -624,27 +751,25 @@ public class AdminCommandProcessor {
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE ROLES</h3>");
         help.append("<ul>");
-        help.append("<li><strong>INSERTARROL[\"nombre\"]</strong> - Crear nuevo rol</li>");
         help.append("<li><strong>LISTARROLES[]</strong> - Listar todos los roles</li>");
-        help.append("<li><strong>MODIFICARROL[\"id\",\"nuevo_nombre\"]</strong> - Modificar rol existente</li>");
-        help.append("<li><strong>ELIMINARROL[\"id\"]</strong> - Eliminar rol</li>");
+   
         help.append("</ul>");
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE USUARIOS</h3>");
         help.append("<ul>");
-        help.append("<li><strong>INSERTARUSUARIO[\"ci\",\"nombre\",\"apellido\",\"telefono\",\"email\",\"rol_nombre\"]</strong> - Crear usuario</li>");
+        help.append("<li><strong>INSERTARUSUARIO[\"ci\",\"nombre\",\"apellido\",\"telefono\",\"email\",\"rol_nombre\"]</strong> - Crear usuario Hay roles de Administrador,Vendedor,Cliente</li>");
         help.append("<li><strong>MODIFICARUSUARIO[\"ci\",\"nombre\",\"apellido\",\"telefono\",\"email\"]</strong> - Modificar usuario</li>");
-        help.append("<li><strong>ELIMINARUSUARIO[\"id\"]</strong> - Eliminar usuario</li>");
+        help.append("<li><strong>ELIMINARUSUARIO[\"ci\"]</strong> - Eliminar usuario</li>");
         help.append("<li><strong>LISTARUSUARIOS[]</strong> - Listar todos los usuarios</li>");
-        help.append("<li><strong>BUSCARUSUARIO[\"email\"]</strong> - Buscar usuario por email</li>");
+        help.append("<li><strong>BUSCARUSUARIO[\"ci\"]</strong> - Buscar usuario por CI</li>");
         help.append("</ul>");
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE CATEGORÍAS</h3>");
         help.append("<ul>");
-        help.append("<li><strong>INSERTARCATEGORIA[\"nombre\"]</strong> - Crear categoría</li>");
-        help.append("<li><strong>LISTARCATEGORIAS[]</strong> - Listar todas las categorías</li>");
-        help.append("<li><strong>MODIFICARCATEGORIA[\"id\",\"nuevo_nombre\"]</strong> - Modificar categoría</li>");
-        help.append("<li><strong>ELIMINARCATEGORIA[\"id\"]</strong> - Eliminar categoría</li>");
+        help.append("<li><strong>INSERTARCATEGORIA[\"nombre\"]</strong> - Crear categoria</li>");
+        help.append("<li><strong>LISTARCATEGORIAS[]</strong> - Listar todas las categorias</li>");
+        help.append("<li><strong>MODIFICARCATEGORIA[\"id\",\"nuevo_nombre\"]</strong> - Modificar categoria</li>");
+        help.append("<li><strong>ELIMINARCATEGORIA[\"id\"]</strong> - Eliminar categoria</li>");
         help.append("</ul>");
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE PRODUCTOS</h3>");
@@ -660,7 +785,7 @@ public class AdminCommandProcessor {
         
         help.append("<h3 style='color: #27ae60;'>GESTIÓN DE PROVEEDORES</h3>");
         help.append("<ul>");
-        help.append("<li><strong>INSERTARPROVEEDOR[\"nombre\",\"contacto\",\"telefono\",\"email\"]</strong> - Crear proveedor</li>");
+        help.append("<li><strong>INSERTARPROVEEDOR[\"nombre\",\"telefono\",\"direcccion\",\"email\"]</strong> - Crear proveedor</li>");
         help.append("<li><strong>MODIFICARPROVEEDOR[\"id\",\"nombre\",\"contacto\",\"telefono\",\"email\"]</strong> - Modificar proveedor</li>");
         help.append("<li><strong>ELIMINARPROVEEDOR[\"id\"]</strong> - Eliminar proveedor</li>");
         help.append("<li><strong>LISTARPROVEEDORES[]</strong> - Listar todos los proveedores</li>");
@@ -707,16 +832,26 @@ public class AdminCommandProcessor {
             }
             
             double totalVentas = 0;
-            double totalPagado = 0;
-            double totalPendiente = 0;
+            double totalPagadoReal = 0;
+            double totalPendienteReal = 0;
             int cantidadVentas = ventasHoy.size();
             
             for (Venta venta : ventasHoy) {
                 totalVentas += venta.getTotal().doubleValue();
-                if (venta.getEstado().equals("pagada")) {
-                    totalPagado += venta.getTotal().doubleValue();
-                } else {
-                    totalPendiente += venta.getTotal().doubleValue();
+                
+                // Calcular el total pagado real para esta venta
+                List<Pago> pagos = ventaService.listarPagos(venta.getId());
+                BigDecimal pagadoVenta = BigDecimal.ZERO;
+                for (Pago pago : pagos) {
+                    pagadoVenta = pagadoVenta.add(pago.getMonto());
+                }
+                
+                totalPagadoReal += pagadoVenta.doubleValue();
+                
+                // Calcular pendiente real
+                BigDecimal pendienteVenta = venta.getTotal().subtract(pagadoVenta);
+                if (pendienteVenta.compareTo(BigDecimal.ZERO) > 0) {
+                    totalPendienteReal += pendienteVenta.doubleValue();
                 }
             }
             
@@ -725,8 +860,8 @@ public class AdminCommandProcessor {
             html.append("<div style='background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
             html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
             html.append("<p><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
-            html.append("<p><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
-            html.append("<p><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("<p style='color: green;'><strong>Total pagado (real):</strong> Bs ").append(String.format("%.2f", totalPagadoReal)).append("</p>");
+            html.append("<p style='color: red;'><strong>Total pendiente (real):</strong> Bs ").append(String.format("%.2f", totalPendienteReal)).append("</p>");
             html.append("</div>");
             
             html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
@@ -774,16 +909,26 @@ public class AdminCommandProcessor {
             }
             
             double totalVentas = 0;
-            double totalPagado = 0;
-            double totalPendiente = 0;
+            double totalPagadoReal = 0;
+            double totalPendienteReal = 0;
             int cantidadVentas = ventasMes.size();
             
             for (Venta venta : ventasMes) {
                 totalVentas += venta.getTotal().doubleValue();
-                if (venta.getEstado().equals("pagada")) {
-                    totalPagado += venta.getTotal().doubleValue();
-                } else {
-                    totalPendiente += venta.getTotal().doubleValue();
+                
+                // Calcular el total pagado real para esta venta
+                List<Pago> pagos = ventaService.listarPagos(venta.getId());
+                BigDecimal pagadoVenta = BigDecimal.ZERO;
+                for (Pago pago : pagos) {
+                    pagadoVenta = pagadoVenta.add(pago.getMonto());
+                }
+                
+                totalPagadoReal += pagadoVenta.doubleValue();
+                
+                // Calcular pendiente real
+                BigDecimal pendienteVenta = venta.getTotal().subtract(pagadoVenta);
+                if (pendienteVenta.compareTo(BigDecimal.ZERO) > 0) {
+                    totalPendienteReal += pendienteVenta.doubleValue();
                 }
             }
             
@@ -795,8 +940,8 @@ public class AdminCommandProcessor {
             html.append("<div style='background: #e8f5e9; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
             html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
             html.append("<p><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
-            html.append("<p><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
-            html.append("<p><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("<p style='color: green;'><strong>Total pagado (real):</strong> Bs ").append(String.format("%.2f", totalPagadoReal)).append("</p>");
+            html.append("<p style='color: red;'><strong>Total pendiente (real):</strong> Bs ").append(String.format("%.2f", totalPendienteReal)).append("</p>");
             html.append("</div>");
             
             html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");
@@ -831,20 +976,31 @@ public class AdminCommandProcessor {
             }
             
             double totalVentas = 0;
-            double totalPagado = 0;
-            double totalPendiente = 0;
+            double totalPagadoReal = 0;
+            double totalPendienteReal = 0;
             int cantidadVentas = ventas.size();
-            int ventasPagadas = 0;
-            int ventasPendientes = 0;
+            int ventasCompletamentePagadas = 0;
+            int ventasConPendiente = 0;
             
             for (Venta venta : ventas) {
                 totalVentas += venta.getTotal().doubleValue();
-                if (venta.getEstado().equals("pagada")) {
-                    totalPagado += venta.getTotal().doubleValue();
-                    ventasPagadas++;
+                
+                // Calcular el total pagado real para esta venta
+                List<Pago> pagos = ventaService.listarPagos(venta.getId());
+                BigDecimal pagadoVenta = BigDecimal.ZERO;
+                for (Pago pago : pagos) {
+                    pagadoVenta = pagadoVenta.add(pago.getMonto());
+                }
+                
+                totalPagadoReal += pagadoVenta.doubleValue();
+                
+                // Calcular pendiente real
+                BigDecimal pendienteVenta = venta.getTotal().subtract(pagadoVenta);
+                if (pendienteVenta.compareTo(BigDecimal.ZERO) > 0) {
+                    totalPendienteReal += pendienteVenta.doubleValue();
+                    ventasConPendiente++;
                 } else {
-                    totalPendiente += venta.getTotal().doubleValue();
-                    ventasPendientes++;
+                    ventasCompletamentePagadas++;
                 }
             }
             
@@ -852,11 +1008,11 @@ public class AdminCommandProcessor {
             html.append("<h3>Reporte Total de Ventas</h3>");
             html.append("<div style='background: #fff3e0; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
             html.append("<p><strong>Total de ventas:</strong> ").append(cantidadVentas).append("</p>");
-            html.append("<p><strong>Ventas pagadas:</strong> ").append(ventasPagadas).append("</p>");
-            html.append("<p><strong>Ventas pendientes:</strong> ").append(ventasPendientes).append("</p>");
+            html.append("<p><strong>Ventas completamente pagadas:</strong> ").append(ventasCompletamentePagadas).append("</p>");
+            html.append("<p><strong>Ventas con saldo pendiente:</strong> ").append(ventasConPendiente).append("</p>");
             html.append("<p style='font-size: 18px; color: #1976d2;'><strong>Monto total:</strong> Bs ").append(String.format("%.2f", totalVentas)).append("</p>");
-            html.append("<p style='color: green;'><strong>Total pagado:</strong> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
-            html.append("<p style='color: orange;'><strong>Total pendiente:</strong> Bs ").append(String.format("%.2f", totalPendiente)).append("</p>");
+            html.append("<p style='color: green;'><strong>Total pagado (real):</strong> Bs ").append(String.format("%.2f", totalPagadoReal)).append("</p>");
+            html.append("<p style='color: red;'><strong>Total pendiente (real):</strong> Bs ").append(String.format("%.2f", totalPendienteReal)).append("</p>");
             html.append("</div>");
             
             html.append("<table border='1' cellpadding='8' cellspacing='0' style='width:100%; border-collapse: collapse;'>");

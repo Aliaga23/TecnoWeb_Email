@@ -498,12 +498,38 @@ public class VendedorCommandProcessor {
         List<DetalleVenta> detalles = ventaService.listarDetalles(ventaId);
         List<Pago> pagos = ventaService.listarPagos(ventaId);
         
+        // Calcular totales de pagos y deuda
+        BigDecimal totalPagado = BigDecimal.ZERO;
+        for (Pago pago : pagos) {
+            totalPagado = totalPagado.add(pago.getMonto());
+        }
+        BigDecimal deudaPendiente = venta.getTotal().subtract(totalPagado);
+        
         StringBuilder html = new StringBuilder();
         html.append("<h3>Venta #").append(ventaId).append("</h3>");
         html.append("<p><b>Fecha:</b> ").append(venta.getFechaVenta()).append("</p>");
         html.append("<p><b>Tipo:</b> ").append(venta.getTipo().toUpperCase()).append("</p>");
         html.append("<p><b>Estado:</b> ").append(venta.getEstado().toUpperCase()).append("</p>");
         html.append("<p><b>Cliente ID:</b> ").append(venta.getClienteId()).append("</p>");
+        
+        // Mostrar información financiera destacada
+        html.append("<div style='background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px;'>");
+        html.append("<h4>Información Financiera</h4>");
+        html.append("<p><b>Total de la venta:</b> Bs ").append(String.format("%.2f", venta.getTotal())).append("</p>");
+        html.append("<p><b>Total pagado:</b> Bs ").append(String.format("%.2f", totalPagado)).append("</p>");
+        
+        if (venta.getTipo().equals("credito")) {
+            String colorDeuda = deudaPendiente.compareTo(BigDecimal.ZERO) > 0 ? "red" : "green";
+            html.append("<p style='color: ").append(colorDeuda).append("; font-weight: bold;'>");
+            html.append("<b>Deuda pendiente: Bs ").append(String.format("%.2f", deudaPendiente)).append("</b></p>");
+            
+            if (deudaPendiente.compareTo(BigDecimal.ZERO) > 0) {
+                html.append("<p style='color: orange;'><i>⚠️ Cliente debe: Bs ").append(String.format("%.2f", deudaPendiente)).append("</i></p>");
+            } else {
+                html.append("<p style='color: green;'><i>✅ Venta completamente pagada</i></p>");
+            }
+        }
+        html.append("</div>");
         
         html.append("<h4>Productos vendidos:</h4>");
         html.append("<table border='1' cellpadding='5' style='border-collapse: collapse;'>");
@@ -534,9 +560,9 @@ public class VendedorCommandProcessor {
                 html.append("</tr>");
             }
             html.append("</table>");
+        } else if (venta.getTipo().equals("credito")) {
+            html.append("<p style='color: orange;'><i>No hay pagos registrados aún</i></p>");
         }
-        
-        html.append("<p style='font-size: 18px;'><b>TOTAL: Bs ").append(String.format("%.2f", venta.getTotal())).append("</b></p>");
         
         return ResponseFormatter.success("Detalle de venta", html.toString());
     }
@@ -729,7 +755,7 @@ public class VendedorCommandProcessor {
         
         help.append("<h3 style='color: #3498db;'>COTIZACIONES</h3>");
         help.append("<ul>");
-        help.append("<li><strong>CREARCOTIZACION[\"ci_cliente\",\"id:cant,id:cant,...\"]</strong> - Crear cotización<br>");
+        help.append("<li><strong>CREARCOTIZACION[\"ci_cliente\",\"idproducto:cant,id:cant,...\"]</strong> - Crear cotización<br>");
         help.append("Ejemplo: CREARCOTIZACION[\"7812899\",\"1:2,3:5,7:1\"]</li>");
         help.append("<li><strong>MISCOTIZACIONES[]</strong> - Ver mis cotizaciones</li>");
         help.append("<li><strong>VERCOTIZACION[\"id\"]</strong> - Ver detalles de cotización</li>");
@@ -737,9 +763,9 @@ public class VendedorCommandProcessor {
         
         help.append("<h3 style='color: #3498db;'>VENTAS</h3>");
         help.append("<ul>");
-        help.append("<li><strong>CREARVENTACONTADO[\"ci_cliente\",\"id:cant,id:cant,...\",\"metodo\"]</strong> - Venta al contado<br>");
+        help.append("<li><strong>CREARVENTACONTADO[\"ci_cliente\",\"idproducto:cant,idproducto:cant,...\",\"metodo\"]</strong> - Venta al contado<br>");
         help.append("Métodos: efectivo, qr, tarjeta<br>Ejemplo: CREARVENTACONTADO[\"7812899\",\"1:2,3:1\",\"efectivo\"]</li>");
-        help.append("<li><strong>CREARVENTACREDITO[\"ci_cliente\",\"id:cant,id:cant,...\",\"monto_inicial\",\"metodo\"]</strong> - Venta a crédito<br>");
+        help.append("<li><strong>CREARVENTACREDITO[\"ci_cliente\",\"idproducto:cant,idproducto:cant,...\",\"monto_inicial\",\"metodo\"]</strong> - Venta a crédito<br>");
         help.append("Métodos: efectivo, qr, tarjeta<br>Ejemplo: CREARVENTACREDITO[\"7812899\",\"2:5,4:3\",\"500\",\"efectivo\"]</li>");
         help.append("<li><strong>ABONARVENTA[\"venta_id\",\"monto\",\"metodo\"]</strong> - Registrar abono a venta</li>");
         help.append("<li><strong>MISVENTAS[]</strong> - Ver mis ventas</li>");
