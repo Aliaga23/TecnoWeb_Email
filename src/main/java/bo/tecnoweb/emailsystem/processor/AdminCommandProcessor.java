@@ -31,7 +31,7 @@ public class AdminCommandProcessor {
     public String procesarComando(Command comando, String emailUsuario) {
         try {
             switch (comando.getNombre()) {
-                // AYUDA
+                // AYUDAa
                 case "HELP":
                     return mostrarHelp();
                     
